@@ -81,11 +81,14 @@ export function ZoneMap({ bids, height = '100%' }: Props) {
       if (!(layer instanceof L.TileLayer)) map.removeLayer(layer)
     })
 
-    fetch(`${import.meta.env.BASE_URL}dfs-zones.geojson`, { signal: abortController.signal })
-      .then((r) => r.json())
-      .then((geojson) => {
+    const zonesPromise = fetch(`${import.meta.env.BASE_URL}dfs-zones.geojson`, { signal: abortController.signal }).then((r) => r.json())
+    const boundariesPromise = fetch(`${import.meta.env.BASE_URL}etys-boundaries.geojson`, { signal: abortController.signal }).then((r) => r.json())
+
+    Promise.all([zonesPromise, boundariesPromise])
+      .then(([zonesGeoJSON, boundariesGeoJSON]) => {
         if (abortController.signal.aborted) return
-        const geoLayer = L.geoJSON(geojson, {
+
+        const geoLayer = L.geoJSON(zonesGeoJSON, {
           style: (feature) => {
             const zone = feature?.properties?.Region as number
             const mw = zoneMW.get(zone) ?? 0
@@ -107,6 +110,21 @@ export function ZoneMap({ bids, height = '100%' }: Props) {
             )
           },
         }).addTo(map)
+
+        L.geoJSON(boundariesGeoJSON, {
+          style: (feature) => ({
+            color: feature?.properties?.color ?? '#6b7280',
+            weight: 2,
+            dashArray: '6 4',
+            fillOpacity: 0,
+            opacity: 0.85,
+          }),
+          onEachFeature: (feature, layer) => {
+            const { label, desc } = feature?.properties ?? {}
+            if (label) layer.bindTooltip(`<strong>${label}</strong><br/><span style="max-width:200px;display:block">${desc}</span>`, { sticky: true })
+          },
+        }).addTo(map)
+
         map.fitBounds(geoLayer.getBounds(), { padding: [4, 4] })
       })
       .catch(() => {}) // aborted fetches throw — swallow silently
