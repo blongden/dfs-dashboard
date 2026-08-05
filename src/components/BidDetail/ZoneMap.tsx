@@ -121,7 +121,10 @@ export function ZoneMap({ bids, height = '100%' }: Props) {
           }),
           onEachFeature: (feature, layer) => {
             const { label, desc } = feature?.properties ?? {}
-            if (label) layer.bindTooltip(`<strong>${label}</strong><br/><span style="max-width:200px;display:block">${desc}</span>`, { sticky: true })
+            if (label) layer.bindTooltip(
+              `<div style="max-width:160px;white-space:normal"><strong>${label}</strong><br/>${desc}</div>`,
+              { sticky: true, className: 'dfs-boundary-tooltip' }
+            )
           },
         }).addTo(map)
 
