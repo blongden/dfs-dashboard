@@ -58,12 +58,15 @@ function buildGroups(bids: NormalisedBid[]): ProviderGroup[] {
       return isNaN(na) || isNaN(nb) ? a.localeCompare(b) : na - nb
     })
 
+    const paymentGBP = accepted.reduce((s, b) => s + b.volumeMW * 0.5 * b.pricePerMWh, 0)
+
     return {
       provider,
       bids: providerBids,
       acceptedMW,
       avgAcceptedPrice,
       avgRejectedPrice,
+      paymentGBP,
       acceptedCount: accepted.length,
       rejectedCount: rejected.length,
       zones,
@@ -108,6 +111,7 @@ export function BidTable({ bids }: Props) {
             <th className="px-3 py-2 text-right">Accepted MW</th>
             <th className="px-3 py-2 text-right">Avg £/MWh</th>
             <th className="px-3 py-2 text-left">Zones</th>
+            <th className="px-3 py-2 text-right">Payment</th>
             <th className="px-3 py-2 text-right">Bids</th>
           </tr>
         </thead>
@@ -135,6 +139,11 @@ export function BidTable({ bids }: Props) {
                   </td>
                   <td className="px-3 py-2">
                     <ZoneChips zones={group.zones} />
+                  </td>
+                  <td className="px-3 py-2 text-right font-medium text-gray-700">
+                    {group.paymentGBP > 0
+                      ? `£${group.paymentGBP.toLocaleString('en-GB', { maximumFractionDigits: 0 })}`
+                      : '—'}
                   </td>
                   <td className="px-3 py-2 text-right">
                     <span className="text-green-700">{group.acceptedCount}✓</span>

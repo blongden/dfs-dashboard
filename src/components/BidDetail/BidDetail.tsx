@@ -5,7 +5,9 @@ import { GspZoneGrid } from './GspZoneGrid'
 import { ProviderPieChart } from './ProviderPieChart'
 import { ZoneMap } from './ZoneMap'
 import { ConstraintPanel } from './ConstraintPanel'
+import { WindPanel } from './WindPanel'
 import { useConstraints } from '../../hooks/useConstraints'
+import { useWindForecast } from '../../hooks/useWindForecast'
 
 interface Props {
   event: DfsEvent
@@ -43,6 +45,7 @@ function ZonalCaps({ caps }: { caps: Partial<Record<ZoneNumber, number>> }) {
 export function BidDetail({ event, bids }: Props) {
   const [filter, setFilter] = useState<Filter>('all')
   const { data: constraintFlows = [], isLoading: constraintsLoading } = useConstraints(event)
+  const { data: windData, isLoading: windLoading } = useWindForecast(event?.date ?? null)
 
   const visible = bids.filter((b) => {
     if (filter === 'accepted') return b.status === 'Accepted'
@@ -161,6 +164,7 @@ export function BidDetail({ event, bids }: Props) {
         <div className="flex-1 overflow-y-auto p-4 min-w-0">
           <ProviderPieChart bids={bids} />
           <ConstraintPanel flows={constraintFlows} isLoading={constraintsLoading} />
+          <WindPanel data={windData} isLoading={windLoading} />
           <GspZoneGrid bids={accepted} />
           <div className="mt-4">
             <BidTable bids={visible} />
