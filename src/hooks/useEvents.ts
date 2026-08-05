@@ -30,7 +30,7 @@ export function useEvents(): {
   return {
     events,
     bids,
-    isLoading: current.isLoading,
-    error: current.error as Error | null,
+    isLoading: current.isLoading || reqs.isLoading,
+    error: (current.error ?? reqs.error) as Error | null,
   }
 }

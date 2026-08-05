@@ -28,10 +28,17 @@ export function buildCurrentReqLookup(reqs: RawCurrentRequirement[]): ReqLookup 
   const byWindow = new Map<string, { requiredMW: number }>()
   for (const r of reqs) {
     const caps = r['Zonal Cap'] ? parseZonalCap(r['Zonal Cap']) : undefined
-    const entry = { requiredMW: Number(r['Service Requirement MW']) || 0, zonalCaps: caps }
-    byEventId.set(Number(r['Event ID']), entry)
+    const mw = Number(r['Service Requirement MW']) || 0
+    const eventId = Number(r['Event ID'])
+    // Sum MW across multiple rows with the same Event ID (e.g. distinct service types)
+    const existing = byEventId.get(eventId)
+    byEventId.set(eventId, {
+      requiredMW: (existing?.requiredMW ?? 0) + mw,
+      zonalCaps: caps ?? existing?.zonalCaps,
+    })
     const key = `${r['Delivery Date']?.slice(0, 10)}|${r.From_Local}|${r.To_Local}`
-    byWindow.set(key, entry)
+    const existingWin = byWindow.get(key)
+    byWindow.set(key, { requiredMW: (existingWin?.requiredMW ?? 0) + mw })
   }
   return { byEventId, byWindow }
 }

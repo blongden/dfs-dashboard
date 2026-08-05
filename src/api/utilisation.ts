@@ -48,17 +48,16 @@ export async function fetchCurrent(): Promise<RawCurrentBid[]> {
   // Fetch all current records (5,000+) in pages
   const first = await ckanSearch<RawCurrentBid>(CURRENT_ID, { limit: PAGE_SIZE, offset: 0 })
   const total = first.total
-  const pages = [first.records]
   const remaining = Math.ceil((total - PAGE_SIZE) / PAGE_SIZE)
-  await Promise.all(
+  const extraPages = await Promise.all(
     Array.from({ length: remaining }, (_, i) =>
       ckanSearch<RawCurrentBid>(CURRENT_ID, {
         limit: PAGE_SIZE,
         offset: (i + 1) * PAGE_SIZE,
-      }).then((p) => pages.push(p.records))
+      }).then((p) => p.records)
     )
   )
-  return pages.flat()
+  return [first.records, ...extraPages].flat()
 }
 
 export async function fetchLegacyPage(

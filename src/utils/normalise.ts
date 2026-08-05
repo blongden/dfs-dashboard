@@ -80,8 +80,8 @@ export function normaliseLegacy(
   source: NormalisedBid['source']
 ): NormalisedBid {
   const date = (raw['Delivery Date'] ?? raw.Date ?? '').slice(0, 10)
-  const from = raw.From ?? ''
-  const to = raw.To ?? ''
+  const from = (raw.From ?? '').slice(0, 5)
+  const to = (raw.To ?? '').slice(0, 5)
   const provider = raw['Registered DFS Participant'] ?? raw['DFS Provider'] ?? ''
   const unit = raw['DFS Unit ID'] ?? raw.Unit ?? ''
   const volumeMW = Number(raw['DFS Volume MW'] ?? raw['DFS Volume']) || 0

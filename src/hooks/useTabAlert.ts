@@ -12,72 +12,45 @@ function getFaviconEl(): HTMLLinkElement {
   return el
 }
 
-function drawFavicon(count: number, originalDataUrl: string | null) {
+function setBadgeFavicon(originalHref: string) {
   const canvas = document.createElement('canvas')
   canvas.width = 32
   canvas.height = 32
   const ctx = canvas.getContext('2d')
   if (!ctx) return
 
-  const finish = () => {
-    if (count > 0) {
-      // Red badge circle in top-right corner
-      ctx.beginPath()
-      ctx.arc(24, 8, 8, 0, 2 * Math.PI)
-      ctx.fillStyle = '#dc2626'
-      ctx.fill()
-    }
+  const img = new Image()
+  img.onload = () => {
+    ctx.drawImage(img, 0, 0, 32, 32)
+    ctx.beginPath()
+    ctx.arc(24, 8, 8, 0, 2 * Math.PI)
+    ctx.fillStyle = '#dc2626'
+    ctx.fill()
     getFaviconEl().href = canvas.toDataURL('image/png')
   }
-
-  if (originalDataUrl) {
-    const img = new Image()
-    img.onload = () => {
-      ctx.drawImage(img, 0, 0, 32, 32)
-      finish()
-    }
-    img.src = originalDataUrl
-  } else {
-    // Fallback: plain blue square if the SVG can't be loaded
-    ctx.fillStyle = '#2563eb'
-    ctx.fillRect(0, 0, 32, 32)
-    finish()
+  img.onerror = () => {
+    // Canvas draw blocked (CSP/cross-origin) — skip favicon badge, title badge still works
   }
+  img.crossOrigin = 'anonymous'
+  img.src = originalHref
 }
 
 export function useTabAlert(count: number) {
-  const originalFaviconUrl = useRef<string | null>(null)
-  const originalTitle = useRef<string>(BASE_TITLE)
+  const originalHref = useRef<string>('')
 
-  // Capture the original favicon data URL once on mount
+  // Capture original href once on mount, before any badge is applied
   useEffect(() => {
-    const el = getFaviconEl()
-    if (!el.href) return
-
-    const img = new Image()
-    img.crossOrigin = 'anonymous'
-    img.onload = () => {
-      const canvas = document.createElement('canvas')
-      canvas.width = 32
-      canvas.height = 32
-      const ctx = canvas.getContext('2d')
-      if (!ctx) return
-      ctx.drawImage(img, 0, 0, 32, 32)
-      originalFaviconUrl.current = canvas.toDataURL('image/png')
-    }
-    img.onerror = () => {
-      originalFaviconUrl.current = null
-    }
-    img.src = el.href
+    originalHref.current = getFaviconEl().href
   }, [])
 
   useEffect(() => {
     if (count > 0) {
       document.title = `(${count}) ${BASE_TITLE}`
-      drawFavicon(count, originalFaviconUrl.current)
+      if (originalHref.current) setBadgeFavicon(originalHref.current)
     } else {
-      document.title = originalTitle.current
-      drawFavicon(0, originalFaviconUrl.current)
+      document.title = BASE_TITLE
+      // Restore original SVG href directly — no canvas needed
+      if (originalHref.current) getFaviconEl().href = originalHref.current
     }
   }, [count])
 }

@@ -65,10 +65,10 @@ export function DayGroup({ date, slots, expanded, selectedKey, onToggle, onSelec
               <button
                 key={key}
                 onClick={() => onSelect(key)}
-                className={`w-full border-b last:border-0 px-4 py-2 text-left transition-colors hover:bg-blue-50 ${
+                className={`w-full border-b last:border-0 px-4 py-2 text-left transition-colors hover:bg-blue-50 border-l-4 ${
                   selected
-                    ? 'border-l-4 border-l-blue-500 bg-blue-50'
-                    : 'border-l-4 border-l-transparent pl-4'
+                    ? 'border-l-blue-500 bg-blue-50'
+                    : 'border-l-transparent'
                 }`}
               >
                 <div className="flex items-center justify-between">
