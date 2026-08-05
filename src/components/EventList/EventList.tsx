@@ -1,7 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import type { DfsEvent } from '../../types/dfs'
 import { DayGroup } from './DayGroup'
-import { Spinner } from '../ui/Spinner'
 import { ErrorBanner } from '../ui/ErrorBanner'
 
 export type HistoryTier = 'none' | 'archive2526' | 'season2324' | 'season2223'
@@ -12,20 +11,10 @@ interface Props {
   onSelect: (key: string) => void
   isLoading: boolean
   error: Error | null
-  historyTier: HistoryTier
-  onSetHistoryTier: (tier: HistoryTier) => void
-  isLoadingHistory: boolean
 }
 
 export function eventKey(e: Pick<DfsEvent, 'date' | 'from' | 'to'>) {
   return `${e.date}|${e.from}|${e.to}`
-}
-
-const TIER_LABELS: Record<HistoryTier, string> = {
-  none: 'Current only',
-  archive2526: '+ Archive 2025/26',
-  season2324: '+ Season 2023/24',
-  season2223: '+ Season 2022/23',
 }
 
 export function EventList({
@@ -34,9 +23,6 @@ export function EventList({
   onSelect,
   isLoading,
   error,
-  historyTier,
-  onSetHistoryTier,
-  isLoadingHistory,
 }: Props) {
   const grouped = useMemo(() => {
     const map = new Map<string, DfsEvent[]>()
@@ -76,24 +62,7 @@ export function EventList({
   return (
     <div className="flex h-full flex-col">
       <div className="border-b px-4 py-3">
-        <div className="flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-gray-700">Events</h2>
-          {isLoadingHistory && <Spinner />}
-        </div>
-        <select
-          value={historyTier}
-          onChange={(e) => {
-            setExpandedDays(new Set())
-            onSetHistoryTier(e.target.value as HistoryTier)
-          }}
-          className="mt-2 w-full rounded border border-gray-200 bg-white px-2 py-1 text-xs text-gray-600"
-        >
-          {(Object.keys(TIER_LABELS) as HistoryTier[]).map((tier) => (
-            <option key={tier} value={tier}>
-              {TIER_LABELS[tier]}
-            </option>
-          ))}
-        </select>
+        <h2 className="text-sm font-semibold text-gray-700">Events</h2>
       </div>
 
       <div className="flex-1 overflow-y-auto">

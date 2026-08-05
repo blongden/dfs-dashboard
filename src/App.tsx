@@ -103,8 +103,6 @@ function Dashboard() {
     [allBids]
   )
 
-  const hasArchive = historyTier !== 'none'
-
   return (
     <div className="flex h-screen flex-col bg-white text-gray-900 overflow-hidden">
       <header className="flex items-center justify-between border-b px-4 py-3 shadow-sm">
@@ -137,6 +135,17 @@ function Dashboard() {
               {activeTierData.isFetchingNextPage ? 'Loading…' : 'Load more'}
             </button>
           )}
+          <select
+            value={historyTier}
+            onChange={(e) => setHistoryTier(e.target.value as HistoryTier)}
+            className="rounded border border-gray-200 bg-white px-2 py-1 text-xs text-gray-600"
+          >
+            <option value="none">Current season</option>
+            <option value="archive2526">+ Archive 2025/26</option>
+            <option value="season2324">+ Season 2023/24</option>
+            <option value="season2223">+ Season 2022/23</option>
+          </select>
+          {isLoadingHistory && <span className="text-xs text-gray-400">Loading…</span>}
           <span
             title={`Polling every 60s · last checked ${lastChecked ? lastChecked.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : '…'}`}
             className="text-xs text-gray-400"
@@ -160,9 +169,6 @@ function Dashboard() {
                 onSelect={setSelectedKey}
                 isLoading={isLoading}
                 error={error}
-                historyTier={historyTier}
-                onSetHistoryTier={setHistoryTier}
-                isLoadingHistory={isLoadingHistory}
               />
             </aside>
             <main className="flex-1 overflow-hidden">
@@ -177,7 +183,7 @@ function Dashboard() {
           </>
         ) : (
           <main className="flex-1 overflow-hidden">
-            <ProviderStats stats={providerStats} hasArchive={hasArchive} />
+            <ProviderStats stats={providerStats} />
           </main>
         )}
       </div>

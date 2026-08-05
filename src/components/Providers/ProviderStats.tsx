@@ -8,7 +8,6 @@ type SortKey = 'name' | 'acceptedMW' | 'acceptanceRate' | 'avgBidPrice' | 'price
 
 interface Props {
   stats: ProviderStat[]
-  hasArchive: boolean
 }
 
 function DeltaBadge({ delta }: { delta: number }) {
@@ -57,14 +56,12 @@ function TrendArrow({ stat, seasons }: { stat: ProviderStat; seasons: Season[] }
   return <span className="text-gray-400">≈ stable</span>
 }
 
-export function ProviderStats({ stats, hasArchive }: Props) {
+export function ProviderStats({ stats }: Props) {
   const [sort, setSort] = useState<SortKey>('acceptedMW')
   const [asc, setAsc] = useState(false)
   const [search, setSearch] = useState('')
 
-  const visibleSeasons = hasArchive
-    ? SEASONS
-    : (['archive2526'] as Season[])
+  const visibleSeasons = SEASONS
 
   const sorted = useMemo(() => {
     const filtered = search
@@ -87,11 +84,11 @@ export function ProviderStats({ stats, hasArchive }: Props) {
     else { setSort(key); setAsc(false) }
   }
 
-  function Th({ label, col }: { label: string; col: SortKey }) {
+  function Th({ label, col, align = 'right' }: { label: string; col: SortKey; align?: 'left' | 'right' }) {
     const active = sort === col
     return (
       <th
-        className="cursor-pointer select-none px-3 py-2 text-left text-xs uppercase tracking-wide text-gray-500 hover:text-gray-800"
+        className={`cursor-pointer select-none px-3 py-2 text-xs uppercase tracking-wide text-gray-500 hover:text-gray-800 ${align === 'right' ? 'text-right' : 'text-left'}`}
         onClick={() => handleSort(col)}
       >
         {label}
@@ -110,24 +107,22 @@ export function ProviderStats({ stats, hasArchive }: Props) {
           className="rounded border border-gray-200 px-2 py-1 text-sm outline-none focus:border-blue-400 w-56"
         />
         <span className="text-xs text-gray-400">{sorted.length} providers</span>
-        {hasArchive && (
-          <span className="text-xs text-gray-400 ml-auto">
-            Bars: {visibleSeasons.map((s) => SEASON_LABELS[s]).join(' · ')} (blue = current season)
-          </span>
-        )}
+        <span className="text-xs text-gray-400 ml-auto">
+          Bars: {visibleSeasons.map((s) => SEASON_LABELS[s]).join(' · ')} · blue = current · load archive to compare
+        </span>
       </div>
 
       <div className="flex-1 overflow-y-auto">
         <table className="w-full text-sm">
           <thead className="sticky top-0 bg-gray-50 z-10">
             <tr className="border-b">
-              <Th label="Provider" col="name" />
+              <Th label="Provider" col="name" align="left" />
               <Th label="Accepted MW" col="acceptedMW" />
               <Th label="Acceptance rate" col="acceptanceRate" />
               <Th label="Avg bid £/MWh" col="avgBidPrice" />
               <Th label="vs clearing price" col="priceDelta" />
-              {hasArchive && <th className="px-3 py-2 text-left text-xs uppercase tracking-wide text-gray-500">Trend</th>}
-              {hasArchive && <th className="px-3 py-2 text-xs uppercase tracking-wide text-gray-500">By season</th>}
+              <th className="px-3 py-2 text-right text-xs uppercase tracking-wide text-gray-500">Trend</th>
+              <th className="px-3 py-2 text-right text-xs uppercase tracking-wide text-gray-500">By season</th>
             </tr>
           </thead>
           <tbody>
@@ -150,16 +145,12 @@ export function ProviderStats({ stats, hasArchive }: Props) {
                 <td className="px-3 py-2 text-right text-xs">
                   <DeltaBadge delta={stat.avgPriceDelta} />
                 </td>
-                {hasArchive && (
-                  <td className="px-3 py-2 text-xs">
-                    <TrendArrow stat={stat} seasons={visibleSeasons} />
-                  </td>
-                )}
-                {hasArchive && (
-                  <td className="px-3 py-2">
-                    <SeasonBar stat={stat} seasons={visibleSeasons} />
-                  </td>
-                )}
+                <td className="px-3 py-2 text-right text-xs">
+                  <TrendArrow stat={stat} seasons={visibleSeasons} />
+                </td>
+                <td className="px-3 py-2 flex justify-end">
+                  <SeasonBar stat={stat} seasons={visibleSeasons} />
+                </td>
               </tr>
             ))}
           </tbody>
