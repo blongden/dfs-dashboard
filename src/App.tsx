@@ -3,12 +3,16 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { EventList, eventKey } from './components/EventList/EventList'
 import type { HistoryTier } from './components/EventList/EventList'
 import { BidDetail } from './components/BidDetail/BidDetail'
+import { ProviderStats } from './components/Providers/ProviderStats'
 import { useEvents } from './hooks/useEvents'
 import { useArchiveTier } from './hooks/useArchive'
 import { useEventAlerts } from './hooks/useEventAlerts'
 import { useTabAlert } from './hooks/useTabAlert'
 import { deriveEvents } from './utils/joinEvents'
+import { computeProviderStats } from './utils/providerStats'
 import type { NormalisedBid } from './types/dfs'
+
+type View = 'events' | 'providers'
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { staleTime: 5 * 60 * 1000 } },
@@ -49,6 +53,7 @@ function AlertBanner({
 }
 
 function Dashboard() {
+  const [view, setView] = useState<View>('events')
   const [selectedKey, setSelectedKey] = useState<string | null>(null)
   const [historyTier, setHistoryTier] = useState<HistoryTier>('none')
 
@@ -93,12 +98,34 @@ function Dashboard() {
 
   const isLoadingHistory = activeTierData.isLoading || activeTierData.isFetchingNextPage
 
+  const providerStats = useMemo(
+    () => computeProviderStats(allBids),
+    [allBids]
+  )
+
+  const hasArchive = historyTier !== 'none'
+
   return (
     <div className="flex h-screen flex-col bg-white text-gray-900 overflow-hidden">
       <header className="flex items-center justify-between border-b px-4 py-3 shadow-sm">
-        <div>
-          <span className="text-base font-bold text-gray-900">DFS Dashboard</span>
-          <span className="ml-2 text-xs text-gray-400">National Energy System Operator</span>
+        <div className="flex items-center gap-4">
+          <div>
+            <span className="text-base font-bold text-gray-900">DFS Dashboard</span>
+            <span className="ml-2 text-xs text-gray-400">National Energy System Operator</span>
+          </div>
+          <div className="flex gap-1">
+            {(['events', 'providers'] as View[]).map((v) => (
+              <button
+                key={v}
+                onClick={() => setView(v)}
+                className={`rounded px-3 py-1 text-xs font-medium capitalize transition-colors ${
+                  view === v ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                {v}
+              </button>
+            ))}
+          </div>
         </div>
         <div className="flex items-center gap-3">
           {activeTierData.hasNextPage && (
@@ -124,27 +151,35 @@ function Dashboard() {
       <AlertBanner newEventIds={newEventIds} newBidsAlert={newBidsAlert} newSettlementAlert={newSettlementAlert} onDismiss={dismiss} />
 
       <div className="flex min-h-0 flex-1">
-        <aside className="w-72 flex-shrink-0 border-r overflow-hidden flex flex-col">
-          <EventList
-            events={events}
-            selectedKey={selectedKey}
-            onSelect={setSelectedKey}
-            isLoading={isLoading}
-            error={error}
-            historyTier={historyTier}
-            onSetHistoryTier={setHistoryTier}
-            isLoadingHistory={isLoadingHistory}
-          />
-        </aside>
-        <main className="flex-1 overflow-hidden">
-          {selectedEvent ? (
-            <BidDetail event={selectedEvent} bids={selectedBids} />
-          ) : (
-            <div className="flex h-full items-center justify-center text-sm text-gray-400">
-              Select an event to see bid details.
-            </div>
-          )}
-        </main>
+        {view === 'events' ? (
+          <>
+            <aside className="w-72 flex-shrink-0 border-r overflow-hidden flex flex-col">
+              <EventList
+                events={events}
+                selectedKey={selectedKey}
+                onSelect={setSelectedKey}
+                isLoading={isLoading}
+                error={error}
+                historyTier={historyTier}
+                onSetHistoryTier={setHistoryTier}
+                isLoadingHistory={isLoadingHistory}
+              />
+            </aside>
+            <main className="flex-1 overflow-hidden">
+              {selectedEvent ? (
+                <BidDetail event={selectedEvent} bids={selectedBids} />
+              ) : (
+                <div className="flex h-full items-center justify-center text-sm text-gray-400">
+                  Select an event to see bid details.
+                </div>
+              )}
+            </main>
+          </>
+        ) : (
+          <main className="flex-1 overflow-hidden">
+            <ProviderStats stats={providerStats} hasArchive={hasArchive} />
+          </main>
+        )}
       </div>
 
       <footer className="flex items-center justify-between border-t px-4 py-2 text-xs text-gray-400">
