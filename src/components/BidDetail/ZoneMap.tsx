@@ -74,16 +74,17 @@ export function ZoneMap({ bids, height = '100%' }: Props) {
     }
 
     const map = mapRef.current
+    const abortController = new AbortController()
 
-    // Clear existing layers (except tile layer)
+    // Clear existing layers
     map.eachLayer((layer) => {
       if (!(layer instanceof L.TileLayer)) map.removeLayer(layer)
     })
 
-    // Load and render GeoJSON
-    fetch('/dfs-zones.geojson')
+    fetch(`${import.meta.env.BASE_URL}dfs-zones.geojson`, { signal: abortController.signal })
       .then((r) => r.json())
       .then((geojson) => {
+        if (abortController.signal.aborted) return
         const geoLayer = L.geoJSON(geojson, {
           style: (feature) => {
             const zone = feature?.properties?.Region as number
@@ -106,10 +107,12 @@ export function ZoneMap({ bids, height = '100%' }: Props) {
             )
           },
         }).addTo(map)
-
         map.fitBounds(geoLayer.getBounds(), { padding: [4, 4] })
       })
-  }, [bids]) // re-render when bids change
+      .catch(() => {}) // aborted fetches throw — swallow silently
+
+    return () => abortController.abort()
+  }, [bids])
 
   useEffect(() => {
     return () => {

@@ -14,13 +14,27 @@ const queryClient = new QueryClient({
   defaultOptions: { queries: { staleTime: 5 * 60 * 1000 } },
 })
 
-function NewEventBanner({ ids, onDismiss }: { ids: number[]; onDismiss: () => void }) {
+function AlertBanner({
+  newEventIds,
+  newBidsAlert,
+  onDismiss,
+}: {
+  newEventIds: number[]
+  newBidsAlert: boolean
+  onDismiss: () => void
+}) {
+  const messages: string[] = []
+  if (newEventIds.length > 0)
+    messages.push(
+      `New DFS ${newEventIds.length === 1 ? 'event' : 'events'} announced: ${newEventIds.map((id) => `#${id}`).join(', ')}`
+    )
+  if (newBidsAlert) messages.push('Bids accepted for an existing event')
+
+  if (messages.length === 0) return null
+
   return (
     <div className="flex items-center gap-3 border-b border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-800">
-      <span className="font-medium">
-        New DFS {ids.length === 1 ? 'event' : 'events'} published:{' '}
-        {ids.map((id) => `#${id}`).join(', ')}
-      </span>
+      <span className="font-medium">{messages.join(' · ')}</span>
       <button
         onClick={onDismiss}
         className="ml-auto rounded px-2 py-0.5 text-xs text-blue-600 hover:bg-blue-100"
@@ -36,8 +50,8 @@ function Dashboard() {
   const [historyTier, setHistoryTier] = useState<HistoryTier>('none')
 
   const { events: currentEvents, bids: currentBids, isLoading, error } = useEvents()
-  const { newEventIds, lastChecked, dismiss } = useEventAlerts()
-  useTabAlert(newEventIds.length)
+  const { newEventIds, newBidsAlert, lastChecked, dismiss } = useEventAlerts()
+  useTabAlert(newEventIds.length + (newBidsAlert ? 1 : 0))
 
   const archive2526 = useArchiveTier('archive2526', historyTier === 'archive2526')
   const season2324 = useArchiveTier('season2324', historyTier === 'season2324')
@@ -104,9 +118,7 @@ function Dashboard() {
         </div>
       </header>
 
-      {newEventIds.length > 0 && (
-        <NewEventBanner ids={newEventIds} onDismiss={dismiss} />
-      )}
+      <AlertBanner newEventIds={newEventIds} newBidsAlert={newBidsAlert} onDismiss={dismiss} />
 
       <div className="flex min-h-0 flex-1">
         <aside className="w-72 flex-shrink-0 border-r overflow-hidden flex flex-col">
