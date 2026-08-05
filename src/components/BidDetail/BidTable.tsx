@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import type { NormalisedBid, ZoneNumber } from '../../types/dfs'
+import type { NormalisedBid } from '../../types/dfs'
 import { StatusBadge } from '../ui/StatusBadge'
 
 interface Props {
