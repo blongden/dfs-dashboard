@@ -10,6 +10,7 @@ const POLL_INTERVAL_MS = 60_000
 export function useEventAlerts(): {
   newEventIds: number[]
   newBidsAlert: boolean
+  newSettlementAlert: boolean
   lastChecked: Date | null
   dismiss: () => void
 } {

@@ -15,6 +15,7 @@ interface ProviderGroup {
   acceptedCount: number
   rejectedCount: number
   zones: string[]
+  paymentGBP: number
 }
 
 function zoneLabel(bid: NormalisedBid): string | null {
