@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import type { DfsEvent } from '../../types/dfs'
 import { DayGroup } from './DayGroup'
+import { Spinner } from '../ui/Spinner'
 import { ErrorBanner } from '../ui/ErrorBanner'
 
 export type HistoryTier = 'none' | 'archive2526' | 'season2324' | 'season2223'

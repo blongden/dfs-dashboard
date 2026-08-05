@@ -57,7 +57,7 @@ export function computeProviderStats(bids: NormalisedBid[]): ProviderStat[] {
 
     const bySeason: ProviderStat['bySeason'] = {}
     for (const bid of provBids) {
-      const season: Season = bid.source === 'current' ? 'current' : bid.source
+      const season: Season = (bid.source === 'archive' ? 'archive2526' : bid.source) as Season
       if (!bySeason[season]) bySeason[season] = { acceptedMW: 0, bids: 0, accepted: 0 }
       bySeason[season]!.bids++
       if (bid.status === 'Accepted') {
