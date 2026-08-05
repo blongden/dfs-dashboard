@@ -77,7 +77,7 @@ function Dashboard() {
   const isLoadingHistory = activeTierData.isLoading || activeTierData.isFetchingNextPage
 
   return (
-    <div className="flex h-screen flex-col bg-white text-gray-900">
+    <div className="flex h-screen flex-col bg-white text-gray-900 overflow-hidden">
       <header className="flex items-center justify-between border-b px-4 py-3 shadow-sm">
         <div>
           <span className="text-base font-bold text-gray-900">DFS Dashboard</span>
@@ -131,6 +131,28 @@ function Dashboard() {
           )}
         </main>
       </div>
+
+      <footer className="flex items-center justify-between border-t px-4 py-2 text-xs text-gray-400">
+        <a
+          href="https://github.com/blongden/dfs-dashboard"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="hover:text-gray-600"
+        >
+          Source on GitHub
+        </a>
+        <span>
+          🏴󠁧󠁢󠁳󠁣󠁴󠁿 Proudly made in Scotland by{' '}
+          <a
+            href="https://github.com/blongden"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="hover:text-gray-600"
+          >
+            blongden
+          </a>
+        </span>
+      </footer>
     </div>
   )
 }
