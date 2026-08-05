@@ -86,6 +86,8 @@ export function deriveEvents(bids: NormalisedBid[], reqLookup?: ReqLookup): DfsE
         requiredMW: reqData.requiredMW,
         zonalCaps: reqData.zonalCaps,
         totalAcceptedMW: accepted.reduce((s, b) => s + b.volumeMW, 0),
+        // Each bid covers a 30-minute window: MW × 0.5h × £/MWh = £
+        totalCostGBP: accepted.reduce((s, b) => s + b.volumeMW * 0.5 * b.pricePerMWh, 0),
         acceptedCount: accepted.length,
         rejectedCount: windowBids.length - accepted.length,
       }

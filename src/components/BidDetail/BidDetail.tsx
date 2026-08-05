@@ -95,6 +95,12 @@ export function BidDetail({ event, bids }: Props) {
             <strong className="text-green-700">{event.totalAcceptedMW.toFixed(1)} MW</strong>
             {' '}({event.acceptedCount} {event.acceptedCount === 1 ? 'bid' : 'bids'})
           </span>
+          {event.totalCostGBP > 0 && (
+            <span className="text-gray-700">
+              Cost to NESO:{' '}
+              <strong>£{event.totalCostGBP.toLocaleString('en-GB', { maximumFractionDigits: 0 })}</strong>
+            </span>
+          )}
           {event.rejectedCount > 0 && (
             <span className="text-gray-400">
               {event.rejectedCount} {event.rejectedCount === 1 ? 'bid' : 'bids'} rejected

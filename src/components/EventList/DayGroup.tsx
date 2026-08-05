@@ -22,6 +22,7 @@ function formatDate(iso: string) {
 export function DayGroup({ date, slots, expanded, selectedKey, onToggle, onSelect }: Props) {
   const totalAcceptedMW = slots.reduce((s, e) => s + e.totalAcceptedMW, 0)
   const totalRequired = slots.reduce((s, e) => s + (e.requiredMW ?? 0), 0)
+  const totalCostGBP = slots.reduce((s, e) => s + e.totalCostGBP, 0)
   const eventTypes = [...new Set(slots.map((s) => s.eventType).filter(Boolean))]
   const hasSelected = slots.some((s) => eventKey(s) === selectedKey)
 
@@ -52,6 +53,9 @@ export function DayGroup({ date, slots, expanded, selectedKey, onToggle, onSelec
           {totalRequired > 0 && <span>Target: {totalRequired.toLocaleString()} MW</span>}
           {totalAcceptedMW > 0 && (
             <span className="text-green-700">{totalAcceptedMW.toFixed(1)} MW accepted</span>
+          )}
+          {totalCostGBP > 0 && (
+            <span className="text-gray-500">£{totalCostGBP.toLocaleString('en-GB', { maximumFractionDigits: 0 })}</span>
           )}
         </div>
       </button>

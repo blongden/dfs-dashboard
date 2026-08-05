@@ -50,6 +50,7 @@ export interface DfsEvent {
   requiredMW?: number
   zonalCaps?: Partial<Record<ZoneNumber, number>>
   totalAcceptedMW: number
+  totalCostGBP: number
   acceptedCount: number
   rejectedCount: number
 }
