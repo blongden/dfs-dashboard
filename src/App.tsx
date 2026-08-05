@@ -66,7 +66,7 @@ function Dashboard() {
   const season2223 = useArchiveTier('season2223', historyTier === 'season2223')
 
   const activeTierData = {
-    none: { bids: [] as NormalisedBid[], isLoading: false, hasNextPage: false, fetchNextPage: () => {}, isFetchingNextPage: false },
+    none: { bids: [] as NormalisedBid[], isLoading: false, isFetchingNextPage: false },
     archive2526,
     season2324,
     season2223,
@@ -96,8 +96,6 @@ function Dashboard() {
     return allBids.filter((b) => b.date === date && b.from === from && b.to === to)
   }, [selectedKey, allBids])
 
-  const isLoadingHistory = activeTierData.isLoading || activeTierData.isFetchingNextPage
-
   const providerStats = useMemo(
     () => computeProviderStats(allBids),
     [allBids]
@@ -126,15 +124,6 @@ function Dashboard() {
           </div>
         </div>
         <div className="flex items-center gap-3">
-          {activeTierData.hasNextPage && (
-            <button
-              onClick={() => activeTierData.fetchNextPage()}
-              disabled={activeTierData.isFetchingNextPage}
-              className="rounded bg-blue-600 px-3 py-1 text-xs text-white hover:bg-blue-700 disabled:opacity-50"
-            >
-              {activeTierData.isFetchingNextPage ? 'Loading…' : 'Load more'}
-            </button>
-          )}
           <select
             value={historyTier}
             onChange={(e) => setHistoryTier(e.target.value as HistoryTier)}
@@ -145,7 +134,9 @@ function Dashboard() {
             <option value="season2324">+ 2023/24</option>
             <option value="season2223">+ 2022/23</option>
           </select>
-          {isLoadingHistory && <span className="text-xs text-gray-400">Loading…</span>}
+          {(activeTierData.isLoading || activeTierData.isFetchingNextPage) && (
+            <span className="text-xs text-gray-400">Loading history…</span>
+          )}
           <span
             title={`Polling every 60s · last checked ${lastChecked ? lastChecked.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : '…'}`}
             className="text-xs text-gray-400"

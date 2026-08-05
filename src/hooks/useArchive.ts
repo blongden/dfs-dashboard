@@ -1,5 +1,5 @@
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
-import { useMemo } from 'react'
+import { useMemo, useEffect } from 'react'
 import { fetchLegacyPage, ARCHIVE_2526_ID, SEASON_2324_ID, SEASON_2223_ID } from '../api/utilisation'
 import { fetchLegacyRequirements } from '../api/requirements'
 import { normaliseLegacy } from '../utils/normalise'
@@ -36,6 +36,12 @@ export function useArchiveTier(tier: ArchiveTier, enabled: boolean) {
     enabled,
   })
 
+  useEffect(() => {
+    if (query.hasNextPage && !query.isFetchingNextPage) {
+      query.fetchNextPage()
+    }
+  }, [query.hasNextPage, query.isFetchingNextPage, query.fetchNextPage])
+
   const reqs = useQuery({
     queryKey: ['archiveReqs', tier],
     queryFn: () => fetchLegacyRequirements(tier),
@@ -60,8 +66,6 @@ export function useArchiveTier(tier: ArchiveTier, enabled: boolean) {
     reqLookup,
     isLoading: query.isLoading,
     isFetchingNextPage: query.isFetchingNextPage,
-    hasNextPage: !!query.hasNextPage,
-    fetchNextPage: query.fetchNextPage,
     error: query.error as Error | null,
   }
 }
