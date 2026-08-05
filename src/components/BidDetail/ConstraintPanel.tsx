@@ -19,9 +19,10 @@ function statusColor(ratio: number): string {
 }
 
 function statusLabel(ratio: number): string {
-  if (ratio >= 1.0) return 'BINDING'
+  if (ratio > 1.0) return 'OVER LIMIT'
+  if (ratio === 1.0) return 'AT LIMIT'
   if (ratio >= 0.85) return 'NEAR LIMIT'
-  return 'clear'
+  return 'within limit'
 }
 
 function ConstraintBar({ flow }: { flow: ConstraintFlow }) {
@@ -73,9 +74,9 @@ export function ConstraintPanel({ flows, isLoading }: Props) {
 
   if (flows.length === 0) return null
 
-  const hasBinding = flows.some((f) => f.limitMW > 0 && f.flowMW / f.limitMW >= 1.0)
+  const hasBinding = flows.some((f) => f.limitMW > 0 && f.flowMW / f.limitMW >= 0.85)
   const scotexBinding = flows.find(
-    (f) => f.group === 'SCOTEX' && f.limitMW > 0 && f.flowMW / f.limitMW >= 1.0
+    (f) => f.group === 'SCOTEX' && f.limitMW > 0 && f.flowMW / f.limitMW >= 0.85
   )
 
   return (
@@ -86,8 +87,8 @@ export function ConstraintPanel({ flows, isLoading }: Props) {
       {hasBinding && (
         <p className="mb-2 text-xs text-gray-500">
           {scotexBinding
-            ? 'Scotland export boundary is binding — reducing Scottish demand would increase export through an already-overloaded constraint, so Scottish zones are excluded.'
-            : 'One or more transmission constraints are binding during this event window.'}
+            ? 'Scotland export boundary is at or over its day-ahead limit — reducing Scottish demand would push more power through an already-strained constraint, so Scottish zones are excluded.'
+            : 'One or more transmission constraints are at or near their day-ahead limit during this event window.'}
         </p>
       )}
       <div className="space-y-2.5">
