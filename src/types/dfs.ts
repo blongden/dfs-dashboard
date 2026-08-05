@@ -53,4 +53,6 @@ export interface DfsEvent {
   totalCostGBP: number
   acceptedCount: number
   rejectedCount: number
+  settledVolumeMW?: number   // undefined = pending, negative = customers increased consumption
+  settledCostGBP?: number
 }

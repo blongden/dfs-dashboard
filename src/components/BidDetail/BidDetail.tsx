@@ -5,9 +5,7 @@ import { GspZoneGrid } from './GspZoneGrid'
 import { ProviderPieChart } from './ProviderPieChart'
 import { ZoneMap } from './ZoneMap'
 import { ConstraintPanel } from './ConstraintPanel'
-import { WindPanel } from './WindPanel'
 import { useConstraints } from '../../hooks/useConstraints'
-import { useWindForecast } from '../../hooks/useWindForecast'
 
 interface Props {
   event: DfsEvent
@@ -45,7 +43,6 @@ function ZonalCaps({ caps }: { caps: Partial<Record<ZoneNumber, number>> }) {
 export function BidDetail({ event, bids }: Props) {
   const [filter, setFilter] = useState<Filter>('all')
   const { data: constraintFlows = [], isLoading: constraintsLoading } = useConstraints(event)
-  const { data: windData, isLoading: windLoading } = useWindForecast(event?.date ?? null)
 
   const visible = bids.filter((b) => {
     if (filter === 'accepted') return b.status === 'Accepted'
@@ -112,6 +109,28 @@ export function BidDetail({ event, bids }: Props) {
               {event.rejectedCount} {event.rejectedCount === 1 ? 'bid' : 'bids'} rejected
             </span>
           )}
+          {event.settledVolumeMW !== undefined ? (
+            (() => {
+              const pct = event.totalAcceptedMW > 0
+                ? (event.settledVolumeMW / event.totalAcceptedMW) * 100
+                : 0
+              const color = pct >= 95 ? 'text-green-700' : pct >= 70 ? 'text-amber-600' : 'text-red-600'
+              return (
+                <span className="text-gray-700">
+                  Settled:{' '}
+                  <strong className={color}>
+                    {event.settledVolumeMW.toFixed(1)} MW
+                  </strong>
+                  <span className="ml-1 text-xs text-gray-400">
+                    ({pct.toFixed(0)}% of contracted
+                    {event.settledCostGBP !== undefined && ` · £${event.settledCostGBP.toLocaleString('en-GB', { maximumFractionDigits: 0 })} paid`})
+                  </span>
+                </span>
+              )
+            })()
+          ) : event.totalAcceptedMW > 0 ? (
+            <span className="text-xs text-gray-400 italic">Settlement pending</span>
+          ) : null}
         </div>
         {(acceptedStats || rejectedStats) && (
           <div className="mt-1 flex flex-wrap gap-x-6 gap-y-1 text-sm">
@@ -164,7 +183,6 @@ export function BidDetail({ event, bids }: Props) {
         <div className="flex-1 overflow-y-auto p-4 min-w-0">
           <ProviderPieChart bids={bids} />
           <ConstraintPanel flows={constraintFlows} isLoading={constraintsLoading} />
-          <WindPanel data={windData} isLoading={windLoading} />
           <GspZoneGrid bids={accepted} />
           <div className="mt-4">
             <BidTable bids={visible} />

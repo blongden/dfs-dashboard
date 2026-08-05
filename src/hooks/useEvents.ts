@@ -2,8 +2,9 @@ import { useQuery } from '@tanstack/react-query'
 import { useMemo } from 'react'
 import { fetchCurrent } from '../api/utilisation'
 import { fetchCurrentRequirements } from '../api/requirements'
+import { fetchSettlementSummary } from '../api/settlement'
 import { normaliseCurrent } from '../utils/normalise'
-import { deriveEvents, buildCurrentReqLookup } from '../utils/joinEvents'
+import { deriveEvents, buildCurrentReqLookup, applySettlement } from '../utils/joinEvents'
 import type { NormalisedBid, DfsEvent } from '../types/dfs'
 
 export function useEvents(): {
@@ -14,6 +15,7 @@ export function useEvents(): {
 } {
   const current = useQuery({ queryKey: ['current'], queryFn: fetchCurrent })
   const reqs = useQuery({ queryKey: ['currentReqs'], queryFn: fetchCurrentRequirements })
+  const settlement = useQuery({ queryKey: ['settlement'], queryFn: fetchSettlementSummary, staleTime: 10 * 60 * 1000 })
 
   const bids = useMemo(
     () => (current.data ?? []).map(normaliseCurrent),
@@ -25,7 +27,10 @@ export function useEvents(): {
     [reqs.data]
   )
 
-  const events = useMemo(() => deriveEvents(bids, reqLookup), [bids, reqLookup])
+  const events = useMemo(() => {
+    const derived = deriveEvents(bids, reqLookup)
+    return settlement.data ? applySettlement(derived, settlement.data) : derived
+  }, [bids, reqLookup, settlement.data])
 
   return {
     events,

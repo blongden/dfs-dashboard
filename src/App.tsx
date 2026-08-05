@@ -17,10 +17,12 @@ const queryClient = new QueryClient({
 function AlertBanner({
   newEventIds,
   newBidsAlert,
+  newSettlementAlert,
   onDismiss,
 }: {
   newEventIds: number[]
   newBidsAlert: boolean
+  newSettlementAlert: boolean
   onDismiss: () => void
 }) {
   const messages: string[] = []
@@ -29,6 +31,7 @@ function AlertBanner({
       `New DFS ${newEventIds.length === 1 ? 'event' : 'events'} announced: ${newEventIds.map((id) => `#${id}`).join(', ')}`
     )
   if (newBidsAlert) messages.push('Bids accepted for an existing event')
+  if (newSettlementAlert) messages.push('Settlement data published for one or more events')
 
   if (messages.length === 0) return null
 
@@ -50,8 +53,8 @@ function Dashboard() {
   const [historyTier, setHistoryTier] = useState<HistoryTier>('none')
 
   const { events: currentEvents, bids: currentBids, isLoading, error } = useEvents()
-  const { newEventIds, newBidsAlert, lastChecked, dismiss } = useEventAlerts()
-  useTabAlert(newEventIds.length + (newBidsAlert ? 1 : 0))
+  const { newEventIds, newBidsAlert, newSettlementAlert, lastChecked, dismiss } = useEventAlerts()
+  useTabAlert(newEventIds.length + (newBidsAlert ? 1 : 0) + (newSettlementAlert ? 1 : 0))
 
   const archive2526 = useArchiveTier('archive2526', historyTier === 'archive2526')
   const season2324 = useArchiveTier('season2324', historyTier === 'season2324')
@@ -118,7 +121,7 @@ function Dashboard() {
         </div>
       </header>
 
-      <AlertBanner newEventIds={newEventIds} newBidsAlert={newBidsAlert} onDismiss={dismiss} />
+      <AlertBanner newEventIds={newEventIds} newBidsAlert={newBidsAlert} newSettlementAlert={newSettlementAlert} onDismiss={dismiss} />
 
       <div className="flex min-h-0 flex-1">
         <aside className="w-72 flex-shrink-0 border-r overflow-hidden flex flex-col">

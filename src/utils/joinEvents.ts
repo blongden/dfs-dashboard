@@ -1,5 +1,6 @@
 import type { NormalisedBid, DfsEvent, ZoneNumber } from '../types/dfs'
 import type { RawCurrentRequirement, RawLegacyRequirement } from '../api/requirements'
+import type { RawSettlementRow } from '../api/settlement'
 
 function parseZonalCap(raw: string): Partial<Record<ZoneNumber, number>> {
   // Format: "Z1:0,Z2:0,Z3:0,Z4:500,..."
@@ -96,4 +97,40 @@ export function deriveEvents(bids: NormalisedBid[], reqLookup?: ReqLookup): DfsE
       const dateCmp = b.date.localeCompare(a.date)
       return dateCmp !== 0 ? dateCmp : b.from.localeCompare(a.from)
     })
+}
+
+export function applySettlement(events: DfsEvent[], rows: RawSettlementRow[]): DfsEvent[] {
+  // Index by event ID and by date|from|to window key
+  const byEventId = new Map<number, { volumeMW: number; costGBP: number }>()
+  const byWindow = new Map<string, { volumeMW: number; costGBP: number }>()
+
+  for (const r of rows) {
+    if (r['Settled Volume MW'] == null) continue
+    const volumeMW = Number(r['Settled Volume MW'])
+    const costGBP = Number(r['Settled Cost GBP'] ?? 0)
+    const windowKey = `${r['Delivery Date']?.slice(0, 10)}|${r['From_Local']}|${r['To_Local']}`
+
+    const eventId = r['Event ID'] != null ? Number(r['Event ID']) : null
+    if (eventId !== null) {
+      const prev = byEventId.get(eventId)
+      byEventId.set(eventId, {
+        volumeMW: (prev?.volumeMW ?? 0) + volumeMW,
+        costGBP: (prev?.costGBP ?? 0) + costGBP,
+      })
+    }
+    const prevWin = byWindow.get(windowKey)
+    byWindow.set(windowKey, {
+      volumeMW: (prevWin?.volumeMW ?? 0) + volumeMW,
+      costGBP: (prevWin?.costGBP ?? 0) + costGBP,
+    })
+  }
+
+  return events.map((e) => {
+    const windowKey = `${e.date}|${e.from}|${e.to}`
+    const data =
+      (e.eventId !== undefined ? byEventId.get(e.eventId) : undefined) ??
+      byWindow.get(windowKey)
+    if (!data) return e
+    return { ...e, settledVolumeMW: data.volumeMW, settledCostGBP: data.costGBP }
+  })
 }

@@ -3,6 +3,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { fetchCurrentRequirements } from '../api/requirements'
 import { ckanSearch } from '../api/client'
 import { CURRENT_ID } from '../api/utilisation'
+import { fetchLatestSettledId } from '../api/settlement'
 
 const POLL_INTERVAL_MS = 60_000
 
@@ -16,14 +17,17 @@ export function useEventAlerts(): {
 
   const knownEventIds = useRef<Set<number> | null>(null)
   const lastUtilisationId = useRef<number | null>(null)
+  const lastSettledId = useRef<number | null>(null)
 
   const [newEventIds, setNewEventIds] = useState<number[]>([])
   const [newBidsAlert, setNewBidsAlert] = useState(false)
+  const [newSettlementAlert, setNewSettlementAlert] = useState(false)
   const [lastChecked, setLastChecked] = useState<Date | null>(null)
 
   const dismiss = useCallback(() => {
     setNewEventIds([])
     setNewBidsAlert(false)
+    setNewSettlementAlert(false)
   }, [])
 
   useEffect(() => {
@@ -31,9 +35,10 @@ export function useEventAlerts(): {
 
     async function check() {
       try {
-        const [reqs, latest] = await Promise.all([
+        const [reqs, latest, latestSettledId] = await Promise.all([
           fetchCurrentRequirements(),
           ckanSearch<{ _id: number }>(CURRENT_ID, { limit: 1, sort: '_id desc' }),
+          fetchLatestSettledId(),
         ])
         if (cancelled) return
 
@@ -64,6 +69,15 @@ export function useEventAlerts(): {
           queryClient.invalidateQueries({ queryKey: ['currentReqs'] })
         }
 
+        // --- Settlement check ---
+        if (lastSettledId.current === null) {
+          lastSettledId.current = latestSettledId
+        } else if (latestSettledId !== null && latestSettledId > lastSettledId.current) {
+          lastSettledId.current = latestSettledId
+          setNewSettlementAlert(true)
+          queryClient.invalidateQueries({ queryKey: ['settlement'] })
+        }
+
         setLastChecked(new Date())
       } catch {
         // Silently ignore poll failures
@@ -78,5 +92,5 @@ export function useEventAlerts(): {
     }
   }, [queryClient])
 
-  return { newEventIds, newBidsAlert, lastChecked, dismiss }
+  return { newEventIds, newBidsAlert, newSettlementAlert, lastChecked, dismiss }
 }
