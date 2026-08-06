@@ -78,6 +78,10 @@ export function deriveEvents(bids: NormalisedBid[], reqLookup?: ReqLookup): DfsE
         reqData = byId ?? byWin ?? {}
       }
 
+      const clearingPricePerMWh = accepted.length > 0
+        ? Math.max(...accepted.map((b) => b.pricePerMWh))
+        : undefined
+
       return {
         date,
         from,
@@ -91,6 +95,7 @@ export function deriveEvents(bids: NormalisedBid[], reqLookup?: ReqLookup): DfsE
         totalCostGBP: accepted.reduce((s, b) => s + b.volumeMW * 0.5 * b.pricePerMWh, 0),
         acceptedCount: accepted.length,
         rejectedCount: windowBids.length - accepted.length,
+        clearingPricePerMWh,
       }
     })
     .sort((a, b) => {

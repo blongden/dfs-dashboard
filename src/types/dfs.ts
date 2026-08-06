@@ -53,6 +53,7 @@ export interface DfsEvent {
   totalCostGBP: number
   acceptedCount: number
   rejectedCount: number
-  settledVolumeMW?: number   // undefined = pending, negative = customers increased consumption
+  clearingPricePerMWh?: number  // max accepted bid price for this window; undefined if no bids accepted
+  settledVolumeMW?: number      // undefined = pending, negative = customers increased consumption
   settledCostGBP?: number
 }

@@ -1,18 +1,19 @@
 import { useState, useMemo } from 'react'
+import { HashRouter, Routes, Route, Navigate, useNavigate, useParams, useLocation } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { EventList, eventKey } from './components/EventList/EventList'
 import type { HistoryTier } from './components/EventList/EventList'
 import { BidDetail } from './components/BidDetail/BidDetail'
-import { ProviderStats } from './components/Providers/ProviderStats'
+import { Analytics } from './components/Analytics/Analytics'
 import { useEvents } from './hooks/useEvents'
 import { useArchiveTier } from './hooks/useArchive'
 import { useEventAlerts } from './hooks/useEventAlerts'
 import { useTabAlert } from './hooks/useTabAlert'
+import { usePageTracking } from './hooks/usePageTracking'
 import { deriveEvents } from './utils/joinEvents'
+import type { ReqLookup } from './utils/joinEvents'
 import { computeProviderStats } from './utils/providerStats'
 import type { NormalisedBid } from './types/dfs'
-
-type View = 'events' | 'providers'
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { staleTime: 5 * 60 * 1000 } },
@@ -53,42 +54,66 @@ function AlertBanner({
 }
 
 function Dashboard() {
-  const [view, setView] = useState<View>('events')
-  const [selectedKey, setSelectedKey] = useState<string | null>(null)
+  const navigate = useNavigate()
+  const location = useLocation()
+  const { eventKey: eventParam } = useParams<{ eventKey?: string }>()
+
+  const view = location.pathname.startsWith('/analytics') ? 'analytics' : 'events'
+
   const [historyTier, setHistoryTier] = useState<HistoryTier>('none')
 
+  usePageTracking()
   const { events: currentEvents, bids: currentBids, isLoading, error } = useEvents()
   const { newEventIds, newBidsAlert, newSettlementAlert, lastChecked, dismiss } = useEventAlerts()
   useTabAlert(newEventIds.length + (newBidsAlert ? 1 : 0) + (newSettlementAlert ? 1 : 0))
 
-  const archive2526 = useArchiveTier('archive2526', historyTier === 'archive2526')
-  const season2324 = useArchiveTier('season2324', historyTier === 'season2324')
+  // Each tier is cumulative: season2223 also loads 23/24 and full 25/26 archive
+  const archive2526 = useArchiveTier('archive2526', historyTier !== 'none')
+  const season2324 = useArchiveTier('season2324', historyTier === 'season2324' || historyTier === 'season2223')
   const season2223 = useArchiveTier('season2223', historyTier === 'season2223')
 
-  const activeTierData = {
-    none: { bids: [] as NormalisedBid[], isLoading: false, isFetchingNextPage: false },
-    archive2526,
-    season2324,
-    season2223,
-  }[historyTier]
+  const isLoadingHistory =
+    archive2526.isLoading || archive2526.isFetchingNextPage ||
+    season2324.isLoading || season2324.isFetchingNextPage ||
+    season2223.isLoading || season2223.isFetchingNextPage
 
-  const allBids: NormalisedBid[] = useMemo(
-    () =>
-      historyTier === 'none'
-        ? currentBids
-        : [...currentBids, ...activeTierData.bids],
-    [historyTier, currentBids, activeTierData.bids]
-  )
+  const allBids: NormalisedBid[] = useMemo(() => {
+    const parts: NormalisedBid[] = [...currentBids]
+    if (historyTier !== 'none') parts.push(...archive2526.bids)
+    if (historyTier === 'season2324' || historyTier === 'season2223') parts.push(...season2324.bids)
+    if (historyTier === 'season2223') parts.push(...season2223.bids)
+    return parts
+  }, [historyTier, currentBids, archive2526.bids, season2324.bids, season2223.bids])
+
+  const mergedReqLookup = useMemo((): ReqLookup | undefined => {
+    if (historyTier === 'none') return undefined
+    const byEventId = new Map<number, { requiredMW: number }>()
+    const byWindow = new Map<string, { requiredMW: number }>()
+    for (const lookup of [archive2526.reqLookup, season2324.reqLookup, season2223.reqLookup]) {
+      if (!lookup) continue
+      lookup.byEventId.forEach((v, k) => byEventId.set(k, v))
+      lookup.byWindow.forEach((v, k) => byWindow.set(k, v))
+    }
+    return { byEventId, byWindow }
+  }, [historyTier, archive2526.reqLookup, season2324.reqLookup, season2223.reqLookup])
 
   const events = useMemo(
-    () =>
-      historyTier === 'none'
-        ? currentEvents
-        : deriveEvents(allBids, 'reqLookup' in activeTierData ? activeTierData.reqLookup : undefined),
-    [historyTier, currentEvents, allBids, activeTierData]
+    () => historyTier === 'none' ? currentEvents : deriveEvents(allBids, mergedReqLookup),
+    [historyTier, currentEvents, allBids, mergedReqLookup]
   )
 
-  const selectedEvent = events.find((e) => eventKey(e) === selectedKey) ?? null
+  // Resolve URL param to a date|from|to key — numeric params are event IDs, others are encoded date keys
+  const selectedKey = useMemo(() => {
+    if (!eventParam) return null
+    if (/^\d+$/.test(eventParam)) {
+      const id = parseInt(eventParam)
+      const found = events.find((e) => e.eventId === id)
+      return found ? eventKey(found) : null
+    }
+    return decodeURIComponent(eventParam)
+  }, [eventParam, events])
+
+  const selectedEvent = selectedKey ? (events.find((e) => eventKey(e) === selectedKey) ?? null) : null
 
   const selectedBids = useMemo(() => {
     if (!selectedKey) return []
@@ -101,6 +126,15 @@ function Dashboard() {
     [allBids]
   )
 
+  function handleSelectEvent(key: string) {
+    const event = events.find((e) => eventKey(e) === key)
+    if (event?.eventId !== undefined) {
+      navigate(`/events/${event.eventId}`)
+    } else {
+      navigate(`/events/${encodeURIComponent(key)}`)
+    }
+  }
+
   return (
     <div className="flex h-screen flex-col bg-white text-gray-900 overflow-hidden">
       <header className="flex items-center justify-between border-b px-4 py-3 shadow-sm">
@@ -110,17 +144,22 @@ function Dashboard() {
             <span className="ml-2 text-xs text-gray-400">National Energy System Operator</span>
           </div>
           <div className="flex gap-1">
-            {(['events', 'providers'] as View[]).map((v) => (
-              <button
-                key={v}
-                onClick={() => setView(v)}
-                className={`rounded px-3 py-1 text-xs font-medium capitalize transition-colors ${
-                  view === v ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                }`}
-              >
-                {v}
-              </button>
-            ))}
+            <button
+              onClick={() => navigate('/events')}
+              className={`rounded px-3 py-1 text-xs font-medium capitalize transition-colors ${
+                view === 'events' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              }`}
+            >
+              Events
+            </button>
+            <button
+              onClick={() => navigate('/analytics/providers')}
+              className={`rounded px-3 py-1 text-xs font-medium capitalize transition-colors ${
+                view === 'analytics' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              }`}
+            >
+              Analytics
+            </button>
           </div>
         </div>
         <div className="flex items-center gap-3">
@@ -130,11 +169,11 @@ function Dashboard() {
             className="rounded border border-gray-200 bg-white px-2 py-1 text-xs text-gray-600"
           >
             <option value="none">2025/26 (recent only)</option>
-            <option value="archive2526">2025/26 (full history)</option>
-            <option value="season2324">+ 2023/24</option>
-            <option value="season2223">+ 2022/23</option>
+            <option value="archive2526">2025/26 (full)</option>
+            <option value="season2324">2025/26 + 2023/24</option>
+            <option value="season2223">2025/26 + 2023/24 + 2022/23</option>
           </select>
-          {(activeTierData.isLoading || activeTierData.isFetchingNextPage) && (
+          {isLoadingHistory && (
             <span className="text-xs text-gray-400">Loading history…</span>
           )}
           <span
@@ -157,7 +196,7 @@ function Dashboard() {
               <EventList
                 events={events}
                 selectedKey={selectedKey}
-                onSelect={setSelectedKey}
+                onSelect={handleSelectEvent}
                 isLoading={isLoading}
                 error={error}
               />
@@ -174,7 +213,7 @@ function Dashboard() {
           </>
         ) : (
           <main className="flex-1 overflow-hidden">
-            <ProviderStats stats={providerStats} />
+            <Analytics stats={providerStats} events={events} />
           </main>
         )}
       </div>
@@ -206,8 +245,16 @@ function Dashboard() {
 
 export default function App() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <Dashboard />
-    </QueryClientProvider>
+    <HashRouter>
+      <QueryClientProvider client={queryClient}>
+        <Routes>
+          <Route path="/" element={<Navigate to="/events" replace />} />
+          <Route path="/events" element={<Dashboard />} />
+          <Route path="/events/:eventKey" element={<Dashboard />} />
+          <Route path="/analytics" element={<Navigate to="/analytics/providers" replace />} />
+          <Route path="/analytics/:tab" element={<Dashboard />} />
+        </Routes>
+      </QueryClientProvider>
+    </HashRouter>
   )
 }

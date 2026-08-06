@@ -92,6 +92,11 @@ export function DayGroup({ date, slots, expanded, selectedKey, onToggle, onSelec
                       {slot.totalAcceptedMW.toFixed(1)} MW accepted
                     </span>
                   )}
+                  {slot.clearingPricePerMWh !== undefined && (
+                    <span className="text-blue-600">
+                      £{slot.clearingPricePerMWh.toFixed(2)}/MWh
+                    </span>
+                  )}
                   {slot.rejectedCount > 0 && (
                     <span className="text-gray-400">{slot.rejectedCount} rejected</span>
                   )}
