@@ -51,9 +51,11 @@ export function DayGroup({ date, slots, expanded, selectedKey, onToggle, onSelec
         <div className="mt-0.5 flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-gray-500">
           <span>{slots.length} {slots.length === 1 ? 'slot' : 'slots'}</span>
           {totalRequired > 0 && <span>Target: {totalRequired.toLocaleString()} MW</span>}
-          {totalAcceptedMW > 0 && (
+          {totalAcceptedMW > 0 ? (
             <span className="text-green-700">{totalAcceptedMW.toFixed(1)} MW accepted</span>
-          )}
+          ) : slots.some((s) => s.procuredMW === 0) ? (
+            <span className="text-gray-400">0 MW procured</span>
+          ) : null}
           {totalCostGBP > 0 && (
             <span className="text-gray-500">£{totalCostGBP.toLocaleString('en-GB', { maximumFractionDigits: 0 })}</span>
           )}
@@ -87,11 +89,13 @@ export function DayGroup({ date, slots, expanded, selectedKey, onToggle, onSelec
                   {slot.requiredMW !== undefined && (
                     <span>Target: {slot.requiredMW.toLocaleString()} MW</span>
                   )}
-                  {slot.totalAcceptedMW > 0 && (
+                  {slot.totalAcceptedMW > 0 ? (
                     <span className="text-green-700">
                       {slot.totalAcceptedMW.toFixed(1)} MW accepted
                     </span>
-                  )}
+                  ) : slot.procuredMW === 0 ? (
+                    <span className="text-gray-400">0 MW procured</span>
+                  ) : null}
                   {slot.clearingPricePerMWh !== undefined && (
                     <span className="text-blue-600">
                       £{slot.clearingPricePerMWh.toFixed(2)}/MWh

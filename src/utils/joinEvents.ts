@@ -150,6 +150,8 @@ export function applySettlement(events: DfsEvent[], rows: RawSettlementRow[]): D
   const byEventId = new Map<number, { volumeMW: number; costGBP: number }>()
   const byWindow = new Map<string, { volumeMW: number; costGBP: number }>()
   const contractedByWindow = new Map<string, number>()
+  const procuredByEventId = new Map<number, number>()
+  const procuredByWindow = new Map<string, number>()
 
   for (const r of rows) {
     const from = stripSeconds(r['From_Local'] ?? '')
@@ -160,6 +162,18 @@ export function applySettlement(events: DfsEvent[], rows: RawSettlementRow[]): D
     if (contractedRaw != null) {
       const contracted = Number(contractedRaw)
       if (!isNaN(contracted) && contracted > 0) contractedByWindow.set(windowKey, contracted)
+    }
+
+    const procuredRaw = r['DFS Procured MW']
+    if (procuredRaw != null) {
+      const procured = Number(procuredRaw)
+      if (!isNaN(procured)) {
+        const eventId = r['Event ID'] != null ? Number(r['Event ID']) : null
+        if (eventId !== null) {
+          procuredByEventId.set(eventId, (procuredByEventId.get(eventId) ?? 0) + procured)
+        }
+        procuredByWindow.set(windowKey, (procuredByWindow.get(windowKey) ?? 0) + procured)
+      }
     }
 
     if (r['Settled Volume MW'] == null) continue
@@ -187,11 +201,15 @@ export function applySettlement(events: DfsEvent[], rows: RawSettlementRow[]): D
       (e.eventId !== undefined ? byEventId.get(e.eventId) : undefined) ??
       byWindow.get(windowKey)
     const contractedCost = contractedByWindow.get(windowKey)
-    if (!data && contractedCost === undefined) return e
+    const procuredMW =
+      (e.eventId !== undefined ? procuredByEventId.get(e.eventId) : undefined) ??
+      procuredByWindow.get(windowKey)
+    if (!data && contractedCost === undefined && procuredMW === undefined) return e
     return {
       ...e,
       ...(data ? { settledVolumeMW: data.volumeMW, settledCostGBP: data.costGBP } : {}),
       ...(contractedCost !== undefined ? { totalCostGBP: contractedCost } : {}),
+      ...(procuredMW !== undefined ? { procuredMW } : {}),
     }
   })
 }

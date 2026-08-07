@@ -57,4 +57,5 @@ export interface DfsEvent {
   clearingPricePerMWh?: number  // max accepted bid price for this window; undefined if no bids accepted
   settledVolumeMW?: number      // undefined = pending, negative = customers increased consumption
   settledCostGBP?: number
+  procuredMW?: number           // from settlement summary; 0 = auction ran but nothing accepted, undefined = not yet in settlement data
 }
