@@ -12,6 +12,7 @@ const SEASON_2223_REQ_ID = '663f3f82-fec8-4c9a-a837-df5db8690a6f'
 export interface RawCurrentRequirement {
   _id: number
   'Event ID': number
+  'DFS Submission Time_Local': string  // bid deadline, e.g. "14/04/2026 12:00"
   'Event Type': string
   'Event Tag': string
   'Delivery Date': string

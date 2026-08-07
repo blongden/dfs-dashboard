@@ -53,6 +53,7 @@ export interface DfsEvent {
   totalCostGBP: number
   acceptedCount: number
   rejectedCount: number
+  submissionDeadline?: string   // bid deadline from requirements, e.g. "14/04/2026 12:00"
   clearingPricePerMWh?: number  // max accepted bid price for this window; undefined if no bids accepted
   settledVolumeMW?: number      // undefined = pending, negative = customers increased consumption
   settledCostGBP?: number

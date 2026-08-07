@@ -20,26 +20,27 @@ function stripSeconds(t: string): string {
 }
 
 export interface ReqLookup {
-  byEventId: Map<number, { requiredMW: number; zonalCaps?: Partial<Record<ZoneNumber, number>> }>
-  byWindow: Map<string, { requiredMW: number }>
+  byEventId: Map<number, { requiredMW: number; zonalCaps?: Partial<Record<ZoneNumber, number>>; submissionDeadline?: string }>
+  byWindow: Map<string, { requiredMW: number; submissionDeadline?: string }>
 }
 
 export function buildCurrentReqLookup(reqs: RawCurrentRequirement[]): ReqLookup {
-  const byEventId = new Map<number, { requiredMW: number; zonalCaps?: Partial<Record<ZoneNumber, number>> }>()
-  const byWindow = new Map<string, { requiredMW: number }>()
+  const byEventId = new Map<number, { requiredMW: number; zonalCaps?: Partial<Record<ZoneNumber, number>>; submissionDeadline?: string }>()
+  const byWindow = new Map<string, { requiredMW: number; submissionDeadline?: string }>()
   for (const r of reqs) {
     const caps = r['Zonal Cap'] ? parseZonalCap(r['Zonal Cap']) : undefined
     const mw = Number(r['Service Requirement MW']) || 0
     const eventId = Number(r['Event ID'])
-    // Sum MW across multiple rows with the same Event ID (e.g. distinct service types)
+    const deadline = r['DFS Submission Time_Local'] || undefined
     const existing = byEventId.get(eventId)
     byEventId.set(eventId, {
       requiredMW: (existing?.requiredMW ?? 0) + mw,
       zonalCaps: caps ?? existing?.zonalCaps,
+      submissionDeadline: deadline ?? existing?.submissionDeadline,
     })
     const key = `${r['Delivery Date']?.slice(0, 10)}|${r.From_Local}|${r.To_Local}`
     const existingWin = byWindow.get(key)
-    byWindow.set(key, { requiredMW: (existingWin?.requiredMW ?? 0) + mw })
+    byWindow.set(key, { requiredMW: (existingWin?.requiredMW ?? 0) + mw, submissionDeadline: deadline ?? existingWin?.submissionDeadline })
   }
   return { byEventId, byWindow }
 }
@@ -70,7 +71,7 @@ export function deriveEvents(bids: NormalisedBid[], reqLookup?: ReqLookup): DfsE
       const accepted = windowBids.filter((b) => b.status === 'Accepted')
       const withEvent = windowBids.find((b) => b.eventId !== undefined)
 
-      let reqData: { requiredMW?: number; zonalCaps?: Partial<Record<ZoneNumber, number>> } = {}
+      let reqData: { requiredMW?: number; zonalCaps?: Partial<Record<ZoneNumber, number>>; submissionDeadline?: string } = {}
       if (reqLookup) {
         const eventId = withEvent?.eventId
         const byId = eventId !== undefined ? reqLookup.byEventId.get(eventId) : undefined
@@ -96,6 +97,7 @@ export function deriveEvents(bids: NormalisedBid[], reqLookup?: ReqLookup): DfsE
         acceptedCount: accepted.length,
         rejectedCount: windowBids.length - accepted.length,
         clearingPricePerMWh,
+        submissionDeadline: reqData.submissionDeadline,
       }
     })
     .sort((a, b) => {
@@ -128,6 +130,7 @@ export function mergeAnnouncedEvents(
       eventType: r['Event Type'] || prev?.eventType,
       requiredMW: (prev?.requiredMW ?? 0) + (Number(r['Service Requirement MW']) || 0),
       zonalCaps: caps ?? prev?.zonalCaps,
+      submissionDeadline: r['DFS Submission Time_Local'] || prev?.submissionDeadline,
       totalAcceptedMW: 0,
       totalCostGBP: 0,
       acceptedCount: 0,

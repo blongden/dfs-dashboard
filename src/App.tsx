@@ -87,8 +87,8 @@ function Dashboard() {
 
   const mergedReqLookup = useMemo((): ReqLookup | undefined => {
     if (historyTier === 'none') return undefined
-    const byEventId = new Map<number, { requiredMW: number }>()
-    const byWindow = new Map<string, { requiredMW: number }>()
+    const byEventId = new Map<number, { requiredMW: number; submissionDeadline?: string }>()
+    const byWindow = new Map<string, { requiredMW: number; submissionDeadline?: string }>()
     for (const lookup of [archive2526.reqLookup, season2324.reqLookup, season2223.reqLookup]) {
       if (!lookup) continue
       lookup.byEventId.forEach((v, k) => byEventId.set(k, v))

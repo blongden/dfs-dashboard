@@ -86,6 +86,9 @@ export function BidDetail({ event, bids }: Props) {
         </div>
         <div className="text-sm text-gray-500">
           {event.from} – {event.to}
+          {event.submissionDeadline && (
+            <span className="ml-3 text-xs text-gray-400">Bid deadline: {event.submissionDeadline}</span>
+          )}
         </div>
         <div className="mt-2 flex flex-wrap gap-4 text-sm">
           {event.requiredMW !== undefined && (
@@ -169,6 +172,11 @@ export function BidDetail({ event, bids }: Props) {
             <p className="mt-1 text-xs text-gray-400">
               This event has been announced but participation data has not been released by NESO.
             </p>
+            {event.submissionDeadline && (
+              <p className="mt-2 text-xs text-gray-400">
+                Bid deadline: <span className="font-medium text-gray-600">{event.submissionDeadline}</span>
+              </p>
+            )}
           </div>
         </div>
       ) : (
