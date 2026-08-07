@@ -1,25 +1,31 @@
 import { useParams, useNavigate } from 'react-router-dom'
-import type { DfsEvent } from '../../types/dfs'
+import type { DfsEvent, NormalisedBid } from '../../types/dfs'
 import type { ProviderStat } from '../../utils/providerStats'
 import { ProviderStats } from '../Providers/ProviderStats'
 import { ClearingPriceChart } from './ClearingPriceChart'
+import { ParticipationChart } from './ParticipationChart'
 
-type Tab = 'providers' | 'clearing'
+type Tab = 'providers' | 'clearing' | 'participation'
 
 const TAB_LABELS: Record<Tab, string> = {
   providers: 'Providers',
   clearing: 'Clearing prices',
+  participation: 'Participation',
 }
 
 interface Props {
   stats: ProviderStat[]
   events: DfsEvent[]
+  bids: NormalisedBid[]
 }
 
-export function Analytics({ stats, events }: Props) {
+export function Analytics({ stats, events, bids }: Props) {
   const { tab: tabParam } = useParams<{ tab?: string }>()
   const navigate = useNavigate()
-  const tab: Tab = tabParam === 'clearing' ? 'clearing' : 'providers'
+  const tab: Tab =
+    tabParam === 'clearing' ? 'clearing'
+    : tabParam === 'participation' ? 'participation'
+    : 'providers'
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
@@ -38,8 +44,10 @@ export function Analytics({ stats, events }: Props) {
       </div>
       {tab === 'providers' ? (
         <ProviderStats stats={stats} />
-      ) : (
+      ) : tab === 'clearing' ? (
         <ClearingPriceChart events={events} />
+      ) : (
+        <ParticipationChart bids={bids} />
       )}
     </div>
   )

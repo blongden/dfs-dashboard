@@ -102,12 +102,19 @@ function Dashboard() {
     [historyTier, currentEvents, allBids, mergedReqLookup]
   )
 
-  // Resolve URL param to a date|from|to key — numeric params are event IDs, others are encoded date keys
+  // Resolve URL param to a date|from|to key
+  // Formats: "{id}-{HHMM}" (e.g. 33-1730), legacy "{id}", or encoded date key
   const selectedKey = useMemo(() => {
     if (!eventParam) return null
+    const idTimeMatch = eventParam.match(/^(\d+)-(\d{4})$/)
+    if (idTimeMatch) {
+      const id = parseInt(idTimeMatch[1])
+      const time = `${idTimeMatch[2].slice(0, 2)}:${idTimeMatch[2].slice(2)}`
+      const found = events.find((e) => e.eventId === id && e.from === time)
+      return found ? eventKey(found) : null
+    }
     if (/^\d+$/.test(eventParam)) {
-      const id = parseInt(eventParam)
-      const found = events.find((e) => e.eventId === id)
+      const found = events.find((e) => e.eventId === parseInt(eventParam))
       return found ? eventKey(found) : null
     }
     return decodeURIComponent(eventParam)
@@ -129,7 +136,8 @@ function Dashboard() {
   function handleSelectEvent(key: string) {
     const event = events.find((e) => eventKey(e) === key)
     if (event?.eventId !== undefined) {
-      navigate(`/events/${event.eventId}`)
+      const timeSlug = event.from.replace(':', '')
+      navigate(`/events/${event.eventId}-${timeSlug}`)
     } else {
       navigate(`/events/${encodeURIComponent(key)}`)
     }
@@ -213,7 +221,7 @@ function Dashboard() {
           </>
         ) : (
           <main className="flex-1 overflow-hidden">
-            <Analytics stats={providerStats} events={events} />
+            <Analytics stats={providerStats} events={events} bids={allBids} />
           </main>
         )}
       </div>
