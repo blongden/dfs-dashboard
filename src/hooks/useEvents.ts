@@ -29,8 +29,8 @@ export function useEvents(): {
 
   const events = useMemo(() => {
     const derived = deriveEvents(bids, reqLookup)
-    const withSettlement = settlement.data ? applySettlement(derived, settlement.data) : derived
-    return reqs.data ? mergeAnnouncedEvents(withSettlement, reqs.data) : withSettlement
+    const merged = reqs.data ? mergeAnnouncedEvents(derived, reqs.data) : derived
+    return settlement.data ? applySettlement(merged, settlement.data) : merged
   }, [bids, reqLookup, settlement.data, reqs.data])
 
   return {
