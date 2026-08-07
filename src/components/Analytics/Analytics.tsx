@@ -4,13 +4,15 @@ import type { ProviderStat } from '../../utils/providerStats'
 import { ProviderStats } from '../Providers/ProviderStats'
 import { ClearingPriceChart } from './ClearingPriceChart'
 import { ParticipationChart } from './ParticipationChart'
+import { EventLeaderboard } from './EventLeaderboard'
 
-type Tab = 'providers' | 'clearing' | 'participation'
+type Tab = 'providers' | 'clearing' | 'participation' | 'events'
 
 const TAB_LABELS: Record<Tab, string> = {
   providers: 'Providers',
   clearing: 'Clearing prices',
   participation: 'Participation',
+  events: 'Events',
 }
 
 interface Props {
@@ -25,6 +27,7 @@ export function Analytics({ stats, events, bids }: Props) {
   const tab: Tab =
     tabParam === 'clearing' ? 'clearing'
     : tabParam === 'participation' ? 'participation'
+    : tabParam === 'events' ? 'events'
     : 'providers'
 
   return (
@@ -46,8 +49,10 @@ export function Analytics({ stats, events, bids }: Props) {
         <ProviderStats stats={stats} />
       ) : tab === 'clearing' ? (
         <ClearingPriceChart events={events} />
-      ) : (
+      ) : tab === 'participation' ? (
         <ParticipationChart bids={bids} />
+      ) : (
+        <EventLeaderboard events={events} />
       )}
     </div>
   )

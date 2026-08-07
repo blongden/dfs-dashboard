@@ -147,15 +147,24 @@ export function mergeAnnouncedEvents(
 }
 
 export function applySettlement(events: DfsEvent[], rows: RawSettlementRow[]): DfsEvent[] {
-  // Index by event ID and by date|from|to window key
   const byEventId = new Map<number, { volumeMW: number; costGBP: number }>()
   const byWindow = new Map<string, { volumeMW: number; costGBP: number }>()
+  const contractedByWindow = new Map<string, number>()
 
   for (const r of rows) {
+    const from = stripSeconds(r['From_Local'] ?? '')
+    const to = stripSeconds(r['To_Local'] ?? '')
+    const windowKey = `${r['Delivery Date']?.slice(0, 10)}|${from}|${to}`
+
+    const contractedRaw = r['DFS Provider Bids Accepted Total Cost GBP']
+    if (contractedRaw != null) {
+      const contracted = Number(contractedRaw)
+      if (!isNaN(contracted) && contracted > 0) contractedByWindow.set(windowKey, contracted)
+    }
+
     if (r['Settled Volume MW'] == null) continue
     const volumeMW = Number(r['Settled Volume MW'])
     const costGBP = Number(r['Settled Cost GBP'] ?? 0)
-    const windowKey = `${r['Delivery Date']?.slice(0, 10)}|${r['From_Local']}|${r['To_Local']}`
 
     const eventId = r['Event ID'] != null ? Number(r['Event ID']) : null
     if (eventId !== null) {
@@ -177,7 +186,12 @@ export function applySettlement(events: DfsEvent[], rows: RawSettlementRow[]): D
     const data =
       (e.eventId !== undefined ? byEventId.get(e.eventId) : undefined) ??
       byWindow.get(windowKey)
-    if (!data) return e
-    return { ...e, settledVolumeMW: data.volumeMW, settledCostGBP: data.costGBP }
+    const contractedCost = contractedByWindow.get(windowKey)
+    if (!data && contractedCost === undefined) return e
+    return {
+      ...e,
+      ...(data ? { settledVolumeMW: data.volumeMW, settledCostGBP: data.costGBP } : {}),
+      ...(contractedCost !== undefined ? { totalCostGBP: contractedCost } : {}),
+    }
   })
 }

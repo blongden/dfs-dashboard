@@ -9,6 +9,7 @@ export interface RawSettlementRow {
   'From_Local': string
   'To_Local': string
   'DFS Procured MW': string | number
+  'DFS Provider Bids Accepted Total Cost GBP': string | number | null
   'Settled Volume MW': string | number | null
   'Settled Cost GBP': string | number | null
 }
