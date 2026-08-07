@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react'
+import { useNavigate } from 'react-router-dom'
 import type { DfsEvent } from '../../types/dfs'
 
 interface Props {
@@ -15,8 +16,14 @@ function formatDate(iso: string) {
   })
 }
 
+function toEventPath(e: DfsEvent): string {
+  if (e.eventId !== undefined) return `/events/${e.eventId}-${e.from.replace(':', '')}`
+  return `/events/${encodeURIComponent(`${e.date}|${e.from}|${e.to}`)}`
+}
+
 export function EventLeaderboard({ events }: Props) {
   const [sortBy, setSortBy] = useState<SortKey>('mw')
+  const navigate = useNavigate()
 
   const ranked = useMemo(() => {
     return events
@@ -76,7 +83,7 @@ export function EventLeaderboard({ events }: Props) {
                 ? e.totalAcceptedMW / topMW
                 : e.totalCostGBP / topCost
               return (
-                <tr key={`${e.date}|${e.from}`} className="border-b hover:bg-gray-50">
+                <tr key={`${e.date}|${e.from}`} onClick={() => navigate(toEventPath(e))} className="border-b hover:bg-blue-50 cursor-pointer">
                   <td className="px-3 py-2 text-right text-xs text-gray-400 tabular-nums">
                     {i + 1}
                   </td>
