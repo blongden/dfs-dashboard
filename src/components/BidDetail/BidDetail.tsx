@@ -162,43 +162,54 @@ export function BidDetail({ event, bids }: Props) {
         )}
       </div>
 
-      <div className="border-b px-4 py-2 flex gap-2">
-        {(['all', 'accepted', 'rejected'] as Filter[]).map((f) => (
-          <button
-            key={f}
-            onClick={() => setFilter(f)}
-            className={`rounded px-3 py-1 text-xs font-medium capitalize transition-colors ${
-              filter === f
-                ? 'bg-blue-600 text-white'
-                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-            }`}
-          >
-            {f}
-          </button>
-        ))}
-      </div>
-
-      <div className="flex min-h-0 flex-1 overflow-hidden">
-        {/* Left: scrollable content */}
-        <div className="flex-1 overflow-y-auto p-4 min-w-0">
-          <ProviderPieChart bids={bids} />
-          <ConstraintPanel flows={constraintFlows} isLoading={constraintsLoading} />
-          <GspZoneGrid bids={accepted} />
-          <div className="mt-4">
-            <BidTable bids={visible} />
+      {bids.length === 0 ? (
+        <div className="flex flex-1 items-center justify-center">
+          <div className="text-center">
+            <p className="text-sm font-medium text-gray-600">Bids not yet published</p>
+            <p className="mt-1 text-xs text-gray-400">
+              This event has been announced but participation data has not been released by NESO.
+            </p>
           </div>
         </div>
-
-        {/* Right: map panel — only shown when zone data exists */}
-        <div className="w-72 flex-shrink-0 border-l p-3 flex flex-col">
-          <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
-            Zone heatmap
-          </h3>
-          <div className="flex-1">
-            <ZoneMap bids={bids} />
+      ) : (
+        <>
+          <div className="border-b px-4 py-2 flex gap-2">
+            {(['all', 'accepted', 'rejected'] as Filter[]).map((f) => (
+              <button
+                key={f}
+                onClick={() => setFilter(f)}
+                className={`rounded px-3 py-1 text-xs font-medium capitalize transition-colors ${
+                  filter === f
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                {f}
+              </button>
+            ))}
           </div>
-        </div>
-      </div>
+
+          <div className="flex min-h-0 flex-1 overflow-hidden">
+            <div className="flex-1 overflow-y-auto p-4 min-w-0">
+              <ProviderPieChart bids={bids} />
+              <ConstraintPanel flows={constraintFlows} isLoading={constraintsLoading} />
+              <GspZoneGrid bids={accepted} />
+              <div className="mt-4">
+                <BidTable bids={visible} />
+              </div>
+            </div>
+
+            <div className="w-72 flex-shrink-0 border-l p-3 flex flex-col">
+              <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
+                Zone heatmap
+              </h3>
+              <div className="flex-1">
+                <ZoneMap bids={bids} />
+              </div>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   )
 }

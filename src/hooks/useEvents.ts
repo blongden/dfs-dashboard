@@ -4,7 +4,7 @@ import { fetchCurrent } from '../api/utilisation'
 import { fetchCurrentRequirements } from '../api/requirements'
 import { fetchSettlementSummary } from '../api/settlement'
 import { normaliseCurrent } from '../utils/normalise'
-import { deriveEvents, buildCurrentReqLookup, applySettlement } from '../utils/joinEvents'
+import { deriveEvents, buildCurrentReqLookup, applySettlement, mergeAnnouncedEvents } from '../utils/joinEvents'
 import type { NormalisedBid, DfsEvent } from '../types/dfs'
 
 export function useEvents(): {
@@ -29,8 +29,9 @@ export function useEvents(): {
 
   const events = useMemo(() => {
     const derived = deriveEvents(bids, reqLookup)
-    return settlement.data ? applySettlement(derived, settlement.data) : derived
-  }, [bids, reqLookup, settlement.data])
+    const withSettlement = settlement.data ? applySettlement(derived, settlement.data) : derived
+    return reqs.data ? mergeAnnouncedEvents(withSettlement, reqs.data) : withSettlement
+  }, [bids, reqLookup, settlement.data, reqs.data])
 
   return {
     events,

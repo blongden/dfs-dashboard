@@ -104,6 +104,45 @@ export function deriveEvents(bids: NormalisedBid[], reqLookup?: ReqLookup): DfsE
     })
 }
 
+export function mergeAnnouncedEvents(
+  events: DfsEvent[],
+  reqs: RawCurrentRequirement[]
+): DfsEvent[] {
+  const existingKeys = new Set(events.map((e) => `${e.date}|${e.from}|${e.to}`))
+  const stubMap = new Map<string, DfsEvent>()
+
+  for (const r of reqs) {
+    const date = r['Delivery Date']?.slice(0, 10) ?? ''
+    const from = stripSeconds(r.From_Local ?? '')
+    const to = stripSeconds(r.To_Local ?? '')
+    const key = `${date}|${from}|${to}`
+    if (existingKeys.has(key) || !date || !from) continue
+
+    const prev = stubMap.get(key)
+    const caps = r['Zonal Cap'] ? parseZonalCap(r['Zonal Cap']) : undefined
+    stubMap.set(key, {
+      date,
+      from,
+      to,
+      eventId: Number(r['Event ID']) || prev?.eventId,
+      eventType: r['Event Type'] || prev?.eventType,
+      requiredMW: (prev?.requiredMW ?? 0) + (Number(r['Service Requirement MW']) || 0),
+      zonalCaps: caps ?? prev?.zonalCaps,
+      totalAcceptedMW: 0,
+      totalCostGBP: 0,
+      acceptedCount: 0,
+      rejectedCount: 0,
+    })
+  }
+
+  if (stubMap.size === 0) return events
+
+  return [...events, ...stubMap.values()].sort((a, b) => {
+    const dateCmp = b.date.localeCompare(a.date)
+    return dateCmp !== 0 ? dateCmp : b.from.localeCompare(a.from)
+  })
+}
+
 export function applySettlement(events: DfsEvent[], rows: RawSettlementRow[]): DfsEvent[] {
   // Index by event ID and by date|from|to window key
   const byEventId = new Map<number, { volumeMW: number; costGBP: number }>()
