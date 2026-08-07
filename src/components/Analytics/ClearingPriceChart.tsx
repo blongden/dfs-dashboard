@@ -75,9 +75,9 @@ export function ClearingPriceChart({ events }: Props) {
           </span>
         </div>
       </div>
-      <div className="flex-1 overflow-y-auto px-6 py-3">
+      <div className="flex-1 overflow-auto px-6 py-3">
         {/* Column headers */}
-        <div className="flex items-end gap-3 pb-1 border-b mb-1">
+        <div className="flex items-end gap-3 pb-1 border-b mb-1 min-w-[480px]">
           <span className="w-20 flex-shrink-0" />
           <span className="w-32 flex-shrink-0 text-xs text-gray-400 text-center">Events / month</span>
           <span className="w-6 flex-shrink-0" />
@@ -96,7 +96,7 @@ export function ClearingPriceChart({ events }: Props) {
           <span className="w-28 flex-shrink-0 text-xs text-gray-400">avg · (min–max)</span>
           <span className="w-20 flex-shrink-0 text-right text-xs text-gray-400">Total MW</span>
         </div>
-        <div className="space-y-1.5">
+        <div className="space-y-1.5 min-w-[480px]">
           {months.map((m) => {
             const avgFrac = (m.avgClearing / axisMax) * 100
             const minFrac = (m.minClearing / axisMax) * 100

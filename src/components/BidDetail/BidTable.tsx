@@ -105,7 +105,7 @@ export function BidTable({ bids }: Props) {
 
   return (
     <div className="overflow-x-auto">
-      <table className="w-full text-sm">
+      <table className="w-full min-w-[480px] text-sm">
         <thead>
           <tr className="border-b bg-gray-50 text-xs uppercase tracking-wide text-gray-500">
             <th className="px-3 py-2 text-left">Provider</th>

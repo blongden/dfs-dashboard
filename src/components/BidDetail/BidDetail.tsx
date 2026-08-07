@@ -207,7 +207,7 @@ export function BidDetail({ event, bids }: Props) {
           </div>
 
           <div className="flex min-h-0 flex-1 overflow-hidden">
-            <div className="flex-1 overflow-y-auto p-4 min-w-0">
+            <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 min-w-0">
               <ProviderPieChart bids={bids} />
               <ConstraintPanel flows={constraintFlows} isLoading={constraintsLoading} />
               <GspZoneGrid bids={accepted} />
