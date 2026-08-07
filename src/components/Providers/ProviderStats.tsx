@@ -99,21 +99,21 @@ export function ProviderStats({ stats }: Props) {
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      <div className="border-b px-4 py-3 flex items-center gap-3">
+      <div className="border-b px-4 py-3 flex flex-wrap items-center gap-2">
         <input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Filter providers…"
-          className="rounded border border-gray-200 px-2 py-1 text-sm outline-none focus:border-blue-400 w-56"
+          className="rounded border border-gray-200 px-2 py-1 text-sm outline-none focus:border-blue-400 w-full sm:w-56"
         />
         <span className="text-xs text-gray-400">{sorted.length} providers</span>
-        <span className="text-xs text-gray-400 ml-auto">
+        <span className="hidden sm:inline text-xs text-gray-400 sm:ml-auto">
           Bars: {visibleSeasons.map((s) => SEASON_LABELS[s]).join(' · ')} · blue = current · load archive to compare
         </span>
       </div>
 
-      <div className="flex-1 overflow-y-auto">
-        <table className="w-full text-sm">
+      <div className="flex-1 overflow-auto">
+        <table className="w-full min-w-[640px] text-sm">
           <thead className="sticky top-0 bg-gray-50 z-10">
             <tr className="border-b">
               <Th label="Provider" col="name" align="left" />

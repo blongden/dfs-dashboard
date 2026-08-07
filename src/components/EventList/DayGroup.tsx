@@ -48,7 +48,7 @@ export function DayGroup({ date, slots, expanded, selectedKey, onToggle, onSelec
           </div>
           <span className="text-xs text-gray-400">{expanded ? '▲' : '▼'}</span>
         </div>
-        <div className="mt-0.5 flex gap-3 text-xs text-gray-500">
+        <div className="mt-0.5 flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-gray-500">
           <span>{slots.length} {slots.length === 1 ? 'slot' : 'slots'}</span>
           {totalRequired > 0 && <span>Target: {totalRequired.toLocaleString()} MW</span>}
           {totalAcceptedMW > 0 && (
@@ -83,7 +83,7 @@ export function DayGroup({ date, slots, expanded, selectedKey, onToggle, onSelec
                     <span className="text-xs text-gray-300">#{slot.eventId}</span>
                   )}
                 </div>
-                <div className="flex gap-3 text-xs text-gray-500">
+                <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-gray-500">
                   {slot.requiredMW !== undefined && (
                     <span>Target: {slot.requiredMW.toLocaleString()} MW</span>
                   )}

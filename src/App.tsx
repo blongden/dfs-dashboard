@@ -145,53 +145,53 @@ function Dashboard() {
 
   return (
     <div className="flex h-screen flex-col bg-white text-gray-900 overflow-hidden">
-      <header className="flex items-center justify-between border-b px-4 py-3 shadow-sm">
-        <div className="flex items-center gap-4">
-          <div>
-            <span className="text-base font-bold text-gray-900">DFS Dashboard</span>
-            <span className="ml-2 text-xs text-gray-400">National Energy System Operator</span>
+      <header className="border-b px-4 py-2 shadow-sm">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="text-base font-bold text-gray-900 whitespace-nowrap">DFS Dashboard</span>
+            <span className="hidden sm:inline text-xs text-gray-400 whitespace-nowrap">National Energy System Operator</span>
           </div>
-          <div className="flex gap-1">
-            <button
-              onClick={() => navigate('/events')}
-              className={`rounded px-3 py-1 text-xs font-medium capitalize transition-colors ${
-                view === 'events' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-              }`}
+          <div className="flex items-center gap-2">
+            <div className="flex gap-1">
+              <button
+                onClick={() => navigate('/events')}
+                className={`rounded px-3 py-1 text-xs font-medium capitalize transition-colors ${
+                  view === 'events' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                Events
+              </button>
+              <button
+                onClick={() => navigate('/analytics/providers')}
+                className={`rounded px-3 py-1 text-xs font-medium capitalize transition-colors ${
+                  view === 'analytics' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                Analytics
+              </button>
+            </div>
+            <select
+              value={historyTier}
+              onChange={(e) => setHistoryTier(e.target.value as HistoryTier)}
+              className="rounded border border-gray-200 bg-white px-2 py-1 text-xs text-gray-600"
             >
-              Events
-            </button>
-            <button
-              onClick={() => navigate('/analytics/providers')}
-              className={`rounded px-3 py-1 text-xs font-medium capitalize transition-colors ${
-                view === 'analytics' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-              }`}
+              <option value="none">25/26 recent</option>
+              <option value="archive2526">25/26 full</option>
+              <option value="season2324">+ 23/24</option>
+              <option value="season2223">+ 22/23</option>
+            </select>
+            {isLoadingHistory && (
+              <span className="text-xs text-gray-400 whitespace-nowrap">Loading…</span>
+            )}
+            <span
+              title={`Polling every 60s · last checked ${lastChecked ? lastChecked.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : '…'}`}
+              className="hidden sm:inline text-xs text-gray-400 whitespace-nowrap"
             >
-              Analytics
-            </button>
+              {lastChecked
+                ? `Checked ${lastChecked.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}`
+                : 'Checking…'}
+            </span>
           </div>
-        </div>
-        <div className="flex items-center gap-3">
-          <select
-            value={historyTier}
-            onChange={(e) => setHistoryTier(e.target.value as HistoryTier)}
-            className="rounded border border-gray-200 bg-white px-2 py-1 text-xs text-gray-600"
-          >
-            <option value="none">2025/26 (recent only)</option>
-            <option value="archive2526">2025/26 (full)</option>
-            <option value="season2324">2025/26 + 2023/24</option>
-            <option value="season2223">2025/26 + 2023/24 + 2022/23</option>
-          </select>
-          {isLoadingHistory && (
-            <span className="text-xs text-gray-400">Loading history…</span>
-          )}
-          <span
-            title={`Polling every 60s · last checked ${lastChecked ? lastChecked.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : '…'}`}
-            className="text-xs text-gray-400"
-          >
-            {lastChecked
-              ? `Checked ${lastChecked.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}`
-              : 'Checking…'}
-          </span>
         </div>
       </header>
 
@@ -200,7 +200,7 @@ function Dashboard() {
       <div className="flex min-h-0 flex-1">
         {view === 'events' ? (
           <>
-            <aside className="w-72 flex-shrink-0 border-r overflow-hidden flex flex-col">
+            <aside className={`${selectedKey ? 'hidden sm:flex' : 'flex'} w-full sm:w-72 flex-shrink-0 border-r overflow-hidden flex-col`}>
               <EventList
                 events={events}
                 selectedKey={selectedKey}
@@ -209,7 +209,7 @@ function Dashboard() {
                 error={error}
               />
             </aside>
-            <main className="flex-1 overflow-hidden">
+            <main className={`${selectedKey ? 'flex' : 'hidden sm:flex'} flex-1 overflow-hidden flex-col`}>
               {selectedEvent ? (
                 <BidDetail event={selectedEvent} bids={selectedBids} />
               ) : (

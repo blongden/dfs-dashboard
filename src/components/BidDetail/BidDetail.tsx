@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import type { DfsEvent, NormalisedBid, ZoneNumber } from '../../types/dfs'
 import { BidTable } from './BidTable'
 import { GspZoneGrid } from './GspZoneGrid'
@@ -42,6 +43,7 @@ function ZonalCaps({ caps }: { caps: Partial<Record<ZoneNumber, number>> }) {
 
 export function BidDetail({ event, bids }: Props) {
   const [filter, setFilter] = useState<Filter>('all')
+  const navigate = useNavigate()
   const { data: constraintFlows = [], isLoading: constraintsLoading } = useConstraints(event)
 
   const visible = bids.filter((b) => {
@@ -68,6 +70,13 @@ export function BidDetail({ event, bids }: Props) {
     <div className="flex h-full flex-col overflow-hidden">
       <div className="border-b p-4">
         <div className="flex items-start gap-2">
+          <button
+            onClick={() => navigate('/events')}
+            className="sm:hidden mr-1 mt-0.5 text-gray-400 hover:text-gray-600 text-lg leading-none"
+            aria-label="Back to events"
+          >
+            ←
+          </button>
           <h2 className="text-base font-semibold text-gray-800">{formatDate(event.date)}</h2>
           {event.eventType && (
             <span
@@ -84,10 +93,10 @@ export function BidDetail({ event, bids }: Props) {
             <span className="mt-0.5 text-xs text-gray-400">Event #{event.eventId}</span>
           )}
         </div>
-        <div className="text-sm text-gray-500">
-          {event.from} – {event.to}
+        <div className="text-sm text-gray-500 flex flex-wrap gap-x-3 gap-y-0.5">
+          <span>{event.from} – {event.to}</span>
           {event.submissionDeadline && (
-            <span className="ml-3 text-xs text-gray-400">Bid deadline: {event.submissionDeadline}</span>
+            <span className="text-xs text-gray-400">Bid deadline: {event.submissionDeadline}</span>
           )}
         </div>
         <div className="mt-2 flex flex-wrap gap-4 text-sm">
@@ -207,7 +216,7 @@ export function BidDetail({ event, bids }: Props) {
               </div>
             </div>
 
-            <div className="w-72 flex-shrink-0 border-l p-3 flex flex-col">
+            <div className="hidden sm:flex w-72 flex-shrink-0 border-l p-3 flex-col">
               <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
                 Zone heatmap
               </h3>
