@@ -11,7 +11,7 @@ import { useEventAlerts } from './hooks/useEventAlerts'
 import { useTabAlert } from './hooks/useTabAlert'
 import { usePageTracking } from './hooks/usePageTracking'
 import { useVersionCheck } from './hooks/useVersionCheck'
-import { deriveEvents } from './utils/joinEvents'
+import { deriveEvents, applySettlement } from './utils/joinEvents'
 import type { ReqLookup } from './utils/joinEvents'
 import { computeProviderStats } from './utils/providerStats'
 import type { NormalisedBid } from './types/dfs'
@@ -67,7 +67,7 @@ function Dashboard() {
 
   usePageTracking()
   const newVersionAvailable = useVersionCheck()
-  const { events: currentEvents, bids: currentBids, isLoading, error } = useEvents()
+  const { events: currentEvents, bids: currentBids, isLoading, error, settlementRows } = useEvents()
   const { newEventIds, newBidsAlert, newSettlementAlert, lastChecked, dismiss } = useEventAlerts()
   useTabAlert(newEventIds.length + (newBidsAlert ? 1 : 0) + (newSettlementAlert ? 1 : 0))
 
@@ -101,10 +101,11 @@ function Dashboard() {
     return { byEventId, byWindow }
   }, [historyTier, archive2526.reqLookup, season2324.reqLookup, season2223.reqLookup])
 
-  const events = useMemo(
-    () => historyTier === 'none' ? currentEvents : deriveEvents(allBids, mergedReqLookup),
-    [historyTier, currentEvents, allBids, mergedReqLookup]
-  )
+  const events = useMemo(() => {
+    if (historyTier === 'none') return currentEvents
+    const derived = deriveEvents(allBids, mergedReqLookup)
+    return settlementRows.length > 0 ? applySettlement(derived, settlementRows) : derived
+  }, [historyTier, currentEvents, allBids, mergedReqLookup, settlementRows])
 
   // Resolve URL param to a date|from|to key
   // Formats: "{id}-{HHMM}" (e.g. 33-1730), legacy "{id}", or encoded date key
