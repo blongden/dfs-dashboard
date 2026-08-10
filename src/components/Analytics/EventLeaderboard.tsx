@@ -6,7 +6,7 @@ interface Props {
   events: DfsEvent[]
 }
 
-type SortKey = 'mw' | 'cost'
+type SortKey = 'mw' | 'cost' | 'price'
 
 function formatDate(iso: string) {
   return new Date(iso + 'T00:00:00').toLocaleDateString('en-GB', {
@@ -31,7 +31,9 @@ export function EventLeaderboard({ events }: Props) {
       .sort((a, b) =>
         sortBy === 'mw'
           ? b.totalAcceptedMW - a.totalAcceptedMW
-          : b.totalCostGBP - a.totalCostGBP
+          : sortBy === 'cost'
+            ? b.totalCostGBP - a.totalCostGBP
+            : (b.clearingPricePerMWh ?? 0) - (a.clearingPricePerMWh ?? 0)
       )
   }, [events, sortBy])
 
@@ -45,12 +47,13 @@ export function EventLeaderboard({ events }: Props) {
 
   const topMW = ranked[0]?.totalAcceptedMW ?? 1
   const topCost = Math.max(...ranked.map((e) => e.totalCostGBP), 1)
+  const topPrice = Math.max(...ranked.map((e) => e.clearingPricePerMWh ?? 0), 1)
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
       <div className="border-b px-4 py-3 flex items-center gap-3">
         <span className="text-xs text-gray-500">Rank by</span>
-        {(['mw', 'cost'] as SortKey[]).map((k) => (
+        {(['mw', 'cost', 'price'] as SortKey[]).map((k) => (
           <button
             key={k}
             onClick={() => setSortBy(k)}
@@ -58,7 +61,7 @@ export function EventLeaderboard({ events }: Props) {
               sortBy === k ? 'bg-gray-800 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
             }`}
           >
-            {k === 'mw' ? 'Volume (MW)' : 'Cost (£)'}
+            {k === 'mw' ? 'Volume (MW)' : k === 'cost' ? 'Cost (£)' : 'Clearing £/MWh'}
           </button>
         ))}
         <span className="ml-auto text-xs text-gray-400">{ranked.length} events</span>
@@ -81,7 +84,9 @@ export function EventLeaderboard({ events }: Props) {
             {ranked.map((e, i) => {
               const barFrac = sortBy === 'mw'
                 ? e.totalAcceptedMW / topMW
-                : e.totalCostGBP / topCost
+                : sortBy === 'cost'
+                  ? e.totalCostGBP / topCost
+                  : (e.clearingPricePerMWh ?? 0) / topPrice
               return (
                 <tr key={`${e.date}|${e.from}`} onClick={() => navigate(toEventPath(e))} className="border-b hover:bg-blue-50 cursor-pointer">
                   <td className="px-3 py-2 text-right text-xs text-gray-400 tabular-nums">
