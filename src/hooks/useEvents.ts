@@ -4,16 +4,19 @@ import { fetchCurrent } from '../api/utilisation'
 import { fetchCurrentRequirements } from '../api/requirements'
 import { fetchSettlementSummary } from '../api/settlement'
 import { normaliseCurrent } from '../utils/normalise'
-import { deriveEvents, buildCurrentReqLookup, applySettlement, mergeAnnouncedEvents } from '../utils/joinEvents'
-import type { NormalisedBid, DfsEvent } from '../types/dfs'
+import { buildCurrentReqLookup } from '../utils/joinEvents'
+import type { NormalisedBid } from '../types/dfs'
 import type { RawSettlementRow } from '../api/settlement'
+import type { RawCurrentRequirement } from '../api/requirements'
+import type { ReqLookup } from '../utils/joinEvents'
 
 export function useEvents(): {
-  events: DfsEvent[]
   bids: NormalisedBid[]
+  rawReqs: RawCurrentRequirement[]
+  reqLookup: ReqLookup | undefined
+  settlementRows: RawSettlementRow[]
   isLoading: boolean
   error: Error | null
-  settlementRows: RawSettlementRow[]
 } {
   const current = useQuery({ queryKey: ['current'], queryFn: fetchCurrent })
   const reqs = useQuery({ queryKey: ['currentReqs'], queryFn: fetchCurrentRequirements })
@@ -29,17 +32,12 @@ export function useEvents(): {
     [reqs.data]
   )
 
-  const events = useMemo(() => {
-    const derived = deriveEvents(bids, reqLookup)
-    const merged = reqs.data ? mergeAnnouncedEvents(derived, reqs.data) : derived
-    return settlement.data ? applySettlement(merged, settlement.data) : merged
-  }, [bids, reqLookup, settlement.data, reqs.data])
-
   return {
-    events,
     bids,
+    rawReqs: reqs.data ?? [],
+    reqLookup,
+    settlementRows: settlement.data ?? [],
     isLoading: current.isLoading || reqs.isLoading,
     error: (current.error ?? reqs.error) as Error | null,
-    settlementRows: settlement.data ?? [],
   }
 }

@@ -11,7 +11,7 @@ import { useEventAlerts } from './hooks/useEventAlerts'
 import { useTabAlert } from './hooks/useTabAlert'
 import { usePageTracking } from './hooks/usePageTracking'
 import { useVersionCheck } from './hooks/useVersionCheck'
-import { deriveEvents, applySettlement } from './utils/joinEvents'
+import { deriveEvents, mergeAnnouncedEvents, applySettlement } from './utils/joinEvents'
 import type { ReqLookup } from './utils/joinEvents'
 import { computeProviderStats } from './utils/providerStats'
 import type { NormalisedBid } from './types/dfs'
@@ -67,7 +67,7 @@ function Dashboard() {
 
   usePageTracking()
   const newVersionAvailable = useVersionCheck()
-  const { events: currentEvents, bids: currentBids, isLoading, error, settlementRows } = useEvents()
+  const { bids: currentBids, rawReqs, reqLookup: currentReqLookup, settlementRows, isLoading, error } = useEvents()
   const { newEventIds, newBidsAlert, newSettlementAlert, lastChecked, dismiss } = useEventAlerts()
   useTabAlert(newEventIds.length + (newBidsAlert ? 1 : 0) + (newSettlementAlert ? 1 : 0))
 
@@ -89,23 +89,24 @@ function Dashboard() {
     return parts
   }, [historyTier, currentBids, archive2526.bids, season2324.bids, season2223.bids])
 
-  const mergedReqLookup = useMemo((): ReqLookup | undefined => {
-    if (historyTier === 'none') return undefined
+  // Always merge all available req lookups (archive lookups are undefined when their tier is disabled)
+  const mergedReqLookup = useMemo((): ReqLookup => {
     const byEventId = new Map<number, { requiredMW: number; submissionDeadline?: string }>()
     const byWindow = new Map<string, { requiredMW: number; submissionDeadline?: string }>()
-    for (const lookup of [archive2526.reqLookup, season2324.reqLookup, season2223.reqLookup]) {
+    for (const lookup of [currentReqLookup, archive2526.reqLookup, season2324.reqLookup, season2223.reqLookup]) {
       if (!lookup) continue
       lookup.byEventId.forEach((v, k) => byEventId.set(k, v))
       lookup.byWindow.forEach((v, k) => byWindow.set(k, v))
     }
     return { byEventId, byWindow }
-  }, [historyTier, archive2526.reqLookup, season2324.reqLookup, season2223.reqLookup])
+  }, [currentReqLookup, archive2526.reqLookup, season2324.reqLookup, season2223.reqLookup])
 
+  // Single event-building path: derive → add announced stubs → apply settlement
   const events = useMemo(() => {
-    if (historyTier === 'none') return currentEvents
     const derived = deriveEvents(allBids, mergedReqLookup)
-    return settlementRows.length > 0 ? applySettlement(derived, settlementRows) : derived
-  }, [historyTier, currentEvents, allBids, mergedReqLookup, settlementRows])
+    const withStubs = mergeAnnouncedEvents(derived, rawReqs)
+    return settlementRows.length > 0 ? applySettlement(withStubs, settlementRows) : withStubs
+  }, [allBids, mergedReqLookup, rawReqs, settlementRows])
 
   // Resolve URL param to a date|from|to key
   // Formats: "{id}-{HHMM}" (e.g. 33-1730), legacy "{id}", or encoded date key
