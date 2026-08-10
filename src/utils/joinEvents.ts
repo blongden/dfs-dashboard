@@ -198,12 +198,12 @@ export function applySettlement(events: DfsEvent[], rows: RawSettlementRow[]): D
   return events.map((e) => {
     const windowKey = `${e.date}|${e.from}|${e.to}`
     const data =
-      (e.eventId !== undefined ? byEventId.get(e.eventId) : undefined) ??
-      byWindow.get(windowKey)
+      byWindow.get(windowKey) ??
+      (e.eventId !== undefined ? byEventId.get(e.eventId) : undefined)
     const contractedCost = contractedByWindow.get(windowKey)
     const procuredMW =
-      (e.eventId !== undefined ? procuredByEventId.get(e.eventId) : undefined) ??
-      procuredByWindow.get(windowKey)
+      procuredByWindow.get(windowKey) ??
+      (e.eventId !== undefined ? procuredByEventId.get(e.eventId) : undefined)
     if (!data && contractedCost === undefined && procuredMW === undefined) return e
     return {
       ...e,
