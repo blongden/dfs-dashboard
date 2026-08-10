@@ -23,19 +23,28 @@ function toEventPath(e: DfsEvent): string {
 
 export function EventLeaderboard({ events }: Props) {
   const [sortBy, setSortBy] = useState<SortKey>('mw')
+  const [asc, setAsc] = useState(false)
   const navigate = useNavigate()
 
+  function handleSort(k: SortKey) {
+    if (k === sortBy) setAsc((v) => !v)
+    else { setSortBy(k); setAsc(false) }
+  }
+
   const ranked = useMemo(() => {
+    const dir = asc ? 1 : -1
     return events
       .filter((e) => e.totalAcceptedMW > 0)
-      .sort((a, b) =>
-        sortBy === 'mw'
-          ? b.totalAcceptedMW - a.totalAcceptedMW
-          : sortBy === 'cost'
-            ? b.totalCostGBP - a.totalCostGBP
-            : (b.clearingPricePerMWh ?? 0) - (a.clearingPricePerMWh ?? 0)
-      )
-  }, [events, sortBy])
+      .sort((a, b) => {
+        const diff =
+          sortBy === 'mw'
+            ? a.totalAcceptedMW - b.totalAcceptedMW
+            : sortBy === 'cost'
+              ? a.totalCostGBP - b.totalCostGBP
+              : (a.clearingPricePerMWh ?? 0) - (b.clearingPricePerMWh ?? 0)
+        return diff * dir
+      })
+  }, [events, sortBy, asc])
 
   if (ranked.length === 0) {
     return (
@@ -45,7 +54,7 @@ export function EventLeaderboard({ events }: Props) {
     )
   }
 
-  const topMW = ranked[0]?.totalAcceptedMW ?? 1
+  const topMW = Math.max(...ranked.map((e) => e.totalAcceptedMW), 1)
   const topCost = Math.max(...ranked.map((e) => e.totalCostGBP), 1)
   const topPrice = Math.max(...ranked.map((e) => e.clearingPricePerMWh ?? 0), 1)
 
@@ -56,12 +65,13 @@ export function EventLeaderboard({ events }: Props) {
         {(['mw', 'cost', 'price'] as SortKey[]).map((k) => (
           <button
             key={k}
-            onClick={() => setSortBy(k)}
+            onClick={() => handleSort(k)}
             className={`rounded px-3 py-1 text-xs font-medium transition-colors ${
               sortBy === k ? 'bg-gray-800 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
             }`}
           >
             {k === 'mw' ? 'Volume (MW)' : k === 'cost' ? 'Cost (£)' : 'Clearing £/MWh'}
+            {sortBy === k && <span className="ml-1">{asc ? '↑' : '↓'}</span>}
           </button>
         ))}
         <span className="ml-auto text-xs text-gray-400">{ranked.length} events</span>
