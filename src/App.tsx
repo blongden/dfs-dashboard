@@ -283,6 +283,11 @@ function Dashboard() {
         >
           Source on GitHub
         </a>
+        {import.meta.env.VITE_APP_VERSION && (
+          <span className="font-mono" title="Deployed commit SHA">
+            {(import.meta.env.VITE_APP_VERSION as string).slice(0, 7)}
+          </span>
+        )}
         <span>
           🏴󠁧󠁢󠁳󠁣󠁴󠁿 Proudly made in Scotland by{' '}
           <a
