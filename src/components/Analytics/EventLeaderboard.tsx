@@ -6,7 +6,7 @@ interface Props {
   events: DfsEvent[]
 }
 
-type SortKey = 'mw' | 'cost' | 'price'
+type SortKey = 'mw' | 'cost' | 'price' | 'delivery'
 
 function formatDate(iso: string) {
   return new Date(iso + 'T00:00:00').toLocaleDateString('en-GB', {
@@ -19,6 +19,18 @@ function formatDate(iso: string) {
 function toEventPath(e: DfsEvent): string {
   if (e.eventId !== undefined) return `/events/${e.eventId}-${e.from.replace(':', '')}`
   return `/events/${encodeURIComponent(`${e.date}|${e.from}|${e.to}`)}`
+}
+
+function deliveryPct(e: DfsEvent): number | undefined {
+  if (e.settledVolumeMW === undefined || !e.procuredMW) return undefined
+  return (e.settledVolumeMW / e.procuredMW) * 100
+}
+
+function deliveryColor(pct: number): string {
+  if (pct < 0) return 'text-red-600'
+  if (pct < 50) return 'text-red-500'
+  if (pct < 80) return 'text-amber-600'
+  return 'text-green-700'
 }
 
 export function EventLeaderboard({ events }: Props) {
@@ -41,7 +53,9 @@ export function EventLeaderboard({ events }: Props) {
             ? a.totalAcceptedMW - b.totalAcceptedMW
             : sortBy === 'cost'
               ? a.totalCostGBP - b.totalCostGBP
-              : (a.clearingPricePerMWh ?? 0) - (b.clearingPricePerMWh ?? 0)
+              : sortBy === 'price'
+                ? (a.clearingPricePerMWh ?? 0) - (b.clearingPricePerMWh ?? 0)
+                : (deliveryPct(a) ?? -Infinity) - (deliveryPct(b) ?? -Infinity)
         return diff * dir
       })
   }, [events, sortBy, asc])
@@ -58,11 +72,18 @@ export function EventLeaderboard({ events }: Props) {
   const topCost = Math.max(...ranked.map((e) => e.totalCostGBP), 1)
   const topPrice = Math.max(...ranked.map((e) => e.clearingPricePerMWh ?? 0), 1)
 
+  const LABELS: Record<SortKey, string> = {
+    mw: 'Volume (MW)',
+    cost: 'Cost (£)',
+    price: 'Clearing £/MWh',
+    delivery: 'Delivery %',
+  }
+
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      <div className="border-b px-4 py-3 flex items-center gap-3">
+      <div className="border-b px-4 py-3 flex items-center gap-3 flex-wrap">
         <span className="text-xs text-gray-500">Rank by</span>
-        {(['mw', 'cost', 'price'] as SortKey[]).map((k) => (
+        {(['mw', 'cost', 'price', 'delivery'] as SortKey[]).map((k) => (
           <button
             key={k}
             onClick={() => handleSort(k)}
@@ -70,7 +91,7 @@ export function EventLeaderboard({ events }: Props) {
               sortBy === k ? 'bg-gray-800 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
             }`}
           >
-            {k === 'mw' ? 'Volume (MW)' : k === 'cost' ? 'Cost (£)' : 'Clearing £/MWh'}
+            {LABELS[k]}
             {sortBy === k && <span className="ml-1">{asc ? '↑' : '↓'}</span>}
           </button>
         ))}
@@ -78,7 +99,7 @@ export function EventLeaderboard({ events }: Props) {
       </div>
 
       <div className="flex-1 overflow-auto">
-        <table className="w-full min-w-[560px] text-sm">
+        <table className="w-full min-w-[640px] text-sm">
           <thead className="sticky top-0 bg-gray-50 z-10">
             <tr className="border-b text-xs uppercase tracking-wide text-gray-500">
               <th className="px-3 py-2 text-right w-10">#</th>
@@ -88,6 +109,7 @@ export function EventLeaderboard({ events }: Props) {
               <th className="px-3 py-2 text-right">Accepted MW</th>
               <th className="px-3 py-2 text-right">Cost to NESO</th>
               <th className="px-3 py-2 text-right">Clearing £/MWh</th>
+              <th className="px-3 py-2 text-right">Delivery</th>
             </tr>
           </thead>
           <tbody>
@@ -96,7 +118,10 @@ export function EventLeaderboard({ events }: Props) {
                 ? e.totalAcceptedMW / topMW
                 : sortBy === 'cost'
                   ? e.totalCostGBP / topCost
-                  : (e.clearingPricePerMWh ?? 0) / topPrice
+                  : sortBy === 'price'
+                    ? (e.clearingPricePerMWh ?? 0) / topPrice
+                    : Math.max(deliveryPct(e) ?? 0, 0) / 100
+              const pct = deliveryPct(e)
               return (
                 <tr key={`${e.date}|${e.from}`} onClick={() => navigate(toEventPath(e))} className="border-b hover:bg-blue-50 cursor-pointer">
                   <td className="px-3 py-2 text-right text-xs text-gray-400 tabular-nums">
@@ -143,6 +168,15 @@ export function EventLeaderboard({ events }: Props) {
                     {e.clearingPricePerMWh !== undefined
                       ? `£${e.clearingPricePerMWh.toFixed(2)}`
                       : <span className="text-gray-300">—</span>}
+                  </td>
+                  <td className="px-3 py-2 text-right tabular-nums">
+                    {pct !== undefined ? (
+                      <span className={`font-medium ${deliveryColor(pct)}`}>
+                        {pct.toFixed(0)}%
+                      </span>
+                    ) : (
+                      <span className="text-gray-300">—</span>
+                    )}
                   </td>
                 </tr>
               )
