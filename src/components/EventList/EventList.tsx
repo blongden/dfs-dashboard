@@ -12,6 +12,11 @@ interface Props {
   onSelect: (key: string) => void
   isLoading: boolean
   error: Error | null
+  providers?: string[]
+  filterProvider: string
+  onFilterProvider: (p: string) => void
+  filterType: string
+  onFilterType: (t: string) => void
 }
 
 export function eventKey(e: Pick<DfsEvent, 'date' | 'from' | 'to'>) {
@@ -24,6 +29,11 @@ export function EventList({
   onSelect,
   isLoading,
   error,
+  providers = [],
+  filterProvider,
+  onFilterProvider,
+  filterType,
+  onFilterType,
 }: Props) {
   const grouped = useMemo(() => {
     const map = new Map<string, DfsEvent[]>()
@@ -62,8 +72,43 @@ export function EventList({
 
   return (
     <div className="flex h-full flex-col">
-      <div className="border-b px-4 py-3">
-        <h2 className="text-sm font-semibold text-gray-700">Events</h2>
+      <div className="border-b px-3 py-2 space-y-2">
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm font-semibold text-gray-700">Events</h2>
+          {(filterProvider || filterType) && (
+            <button
+              onClick={() => { onFilterProvider(''); onFilterType('') }}
+              className="text-xs text-blue-500 hover:text-blue-700"
+            >
+              Clear filters
+            </button>
+          )}
+        </div>
+        <div className="flex gap-1">
+          {(['', 'Downwards', 'Upwards'] as const).map((t) => (
+            <button
+              key={t}
+              onClick={() => onFilterType(t)}
+              className={`rounded px-2 py-0.5 text-xs font-medium transition-colors ${
+                filterType === t ? 'bg-gray-800 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+              }`}
+            >
+              {t || 'All'}
+            </button>
+          ))}
+        </div>
+        {providers.length > 0 && (
+          <select
+            value={filterProvider}
+            onChange={(e) => onFilterProvider(e.target.value)}
+            className="w-full rounded border border-gray-200 bg-white px-2 py-1 text-xs text-gray-600 truncate"
+          >
+            <option value="">All providers</option>
+            {providers.map((p) => (
+              <option key={p} value={p}>{p}</option>
+            ))}
+          </select>
+        )}
       </div>
 
       <div className="flex-1 overflow-y-auto">

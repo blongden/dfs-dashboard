@@ -61,6 +61,8 @@ function Dashboard() {
   const view = location.pathname.startsWith('/analytics') ? 'analytics' : 'events'
 
   const [historyTier, setHistoryTier] = useState<HistoryTier>('none')
+  const [filterProvider, setFilterProvider] = useState('')
+  const [filterType, setFilterType] = useState('')
 
   usePageTracking()
   const { events: currentEvents, bids: currentBids, isLoading, error } = useEvents()
@@ -133,6 +135,34 @@ function Dashboard() {
     [allBids]
   )
 
+  const acceptedProvidersByWindow = useMemo(() => {
+    const map = new Map<string, Set<string>>()
+    for (const bid of allBids) {
+      if (bid.status !== 'Accepted') continue
+      const key = `${bid.date}|${bid.from}|${bid.to}`
+      if (!map.has(key)) map.set(key, new Set())
+      map.get(key)!.add(bid.provider)
+    }
+    return map
+  }, [allBids])
+
+  const providers = useMemo(() => {
+    const set = new Set<string>()
+    for (const ps of acceptedProvidersByWindow.values()) ps.forEach((p) => set.add(p))
+    return Array.from(set).sort()
+  }, [acceptedProvidersByWindow])
+
+  const filteredEvents = useMemo(() => {
+    return events.filter((e) => {
+      if (filterType && e.eventType !== filterType) return false
+      if (filterProvider) {
+        const ps = acceptedProvidersByWindow.get(`${e.date}|${e.from}|${e.to}`)
+        if (!ps?.has(filterProvider)) return false
+      }
+      return true
+    })
+  }, [events, filterType, filterProvider, acceptedProvidersByWindow])
+
   function handleSelectEvent(key: string) {
     const event = events.find((e) => eventKey(e) === key)
     if (event?.eventId !== undefined) {
@@ -202,11 +232,16 @@ function Dashboard() {
           <>
             <aside className={`${selectedKey ? 'hidden sm:flex' : 'flex'} w-full sm:w-72 flex-shrink-0 border-r overflow-hidden flex-col`}>
               <EventList
-                events={events}
+                events={filteredEvents}
                 selectedKey={selectedKey}
                 onSelect={handleSelectEvent}
                 isLoading={isLoading}
                 error={error}
+                providers={providers}
+                filterProvider={filterProvider}
+                onFilterProvider={setFilterProvider}
+                filterType={filterType}
+                onFilterType={setFilterType}
               />
             </aside>
             <main className={`${selectedKey ? 'flex' : 'hidden sm:flex'} flex-1 overflow-hidden flex-col`}>
