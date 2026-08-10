@@ -10,6 +10,7 @@ import { useArchiveTier } from './hooks/useArchive'
 import { useEventAlerts } from './hooks/useEventAlerts'
 import { useTabAlert } from './hooks/useTabAlert'
 import { usePageTracking } from './hooks/usePageTracking'
+import { useVersionCheck } from './hooks/useVersionCheck'
 import { deriveEvents } from './utils/joinEvents'
 import type { ReqLookup } from './utils/joinEvents'
 import { computeProviderStats } from './utils/providerStats'
@@ -65,6 +66,7 @@ function Dashboard() {
   const [filterType, setFilterType] = useState('')
 
   usePageTracking()
+  const newVersionAvailable = useVersionCheck()
   const { events: currentEvents, bids: currentBids, isLoading, error } = useEvents()
   const { newEventIds, newBidsAlert, newSettlementAlert, lastChecked, dismiss } = useEventAlerts()
   useTabAlert(newEventIds.length + (newBidsAlert ? 1 : 0) + (newSettlementAlert ? 1 : 0))
@@ -225,6 +227,17 @@ function Dashboard() {
         </div>
       </header>
 
+      {newVersionAvailable && (
+        <div className="flex items-center gap-3 border-b border-green-200 bg-green-50 px-4 py-2 text-sm text-green-800">
+          <span className="font-medium">A new version is available.</span>
+          <button
+            onClick={() => window.location.reload()}
+            className="rounded bg-green-700 px-3 py-0.5 text-xs font-medium text-white hover:bg-green-800"
+          >
+            Refresh now
+          </button>
+        </div>
+      )}
       <AlertBanner newEventIds={newEventIds} newBidsAlert={newBidsAlert} newSettlementAlert={newSettlementAlert} onDismiss={dismiss} />
 
       <div className="flex min-h-0 flex-1">

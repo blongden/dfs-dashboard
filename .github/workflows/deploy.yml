@@ -24,7 +24,11 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - name: Write version
+        run: echo '{"version":"${{ github.sha }}"}' > public/version.json
       - run: npm run build
+        env:
+          VITE_APP_VERSION: ${{ github.sha }}
       - uses: actions/upload-pages-artifact@v4
         with:
           path: dist
