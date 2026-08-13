@@ -67,7 +67,7 @@ export function useNotifications(): {
 
   const notify = useCallback((title: string, body: string) => {
     if (status !== 'on') return
-    new Notification(title, { body, icon: '/dfs-dashboard/favicon.ico' })
+    new Notification(title, { body, icon: '/dfs-dashboard/favicon.svg' })
   }, [status])
 
   return { status, toggle, notify }
