@@ -7,6 +7,11 @@ import { fetchLatestSettledId } from '../api/settlement'
 
 const POLL_INTERVAL_MS = 60_000
 
+function notify(title: string, body: string) {
+  if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return
+  new Notification(title, { body, icon: '/dfs-dashboard/favicon.ico' })
+}
+
 export function useEventAlerts(): {
   newEventIds: number[]
   newBidsAlert: boolean
@@ -29,6 +34,12 @@ export function useEventAlerts(): {
     setNewEventIds([])
     setNewBidsAlert(false)
     setNewSettlementAlert(false)
+  }, [])
+
+  useEffect(() => {
+    if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
+      Notification.requestPermission()
+    }
   }, [])
 
   useEffect(() => {
@@ -55,6 +66,10 @@ export function useEventAlerts(): {
             setNewEventIds(newIds)
             queryClient.invalidateQueries({ queryKey: ['current'] })
             queryClient.invalidateQueries({ queryKey: ['currentReqs'] })
+            notify(
+              `New DFS ${newIds.length === 1 ? 'event' : 'events'} announced`,
+              newIds.map((id) => `#${id}`).join(', ')
+            )
           }
         }
 
@@ -68,6 +83,7 @@ export function useEventAlerts(): {
           setNewBidsAlert(true)
           queryClient.invalidateQueries({ queryKey: ['current'] })
           queryClient.invalidateQueries({ queryKey: ['currentReqs'] })
+          notify('DFS bids updated', 'Bids accepted for an existing event')
         }
 
         // --- Settlement check ---
@@ -77,6 +93,7 @@ export function useEventAlerts(): {
           lastSettledId.current = latestSettledId
           setNewSettlementAlert(true)
           queryClient.invalidateQueries({ queryKey: ['settlement'] })
+          notify('DFS settlement published', 'Settlement data published for one or more events')
         }
 
         setLastChecked(new Date())
