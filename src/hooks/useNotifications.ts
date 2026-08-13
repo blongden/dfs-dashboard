@@ -30,10 +30,13 @@ export function useNotifications(): {
     // PermissionState uses 'prompt'; NotificationPermission uses 'default' — normalise.
     const normalise = (s: PermissionState): NotificationPermission =>
       s === 'prompt' ? 'default' : (s as NotificationPermission)
-    navigator.permissions.query({ name: 'notifications' as PermissionName }).then((ps) => {
+    let ps: PermissionStatus | null = null
+    navigator.permissions.query({ name: 'notifications' as PermissionName }).then((result) => {
+      ps = result
       setPermission(normalise(ps.state))
-      ps.onchange = () => setPermission(normalise(ps.state))
+      ps.onchange = () => setPermission(normalise(ps!.state))
     })
+    return () => { if (ps) ps.onchange = null }
   }, [supported])
 
   const status: NotificationStatus = !supported
