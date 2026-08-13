@@ -8,6 +8,7 @@ import { Analytics } from './components/Analytics/Analytics'
 import { useEvents } from './hooks/useEvents'
 import { useArchiveTier } from './hooks/useArchive'
 import { useEventAlerts } from './hooks/useEventAlerts'
+import { useNotifications } from './hooks/useNotifications'
 import { useTabAlert } from './hooks/useTabAlert'
 import { usePageTracking } from './hooks/usePageTracking'
 import { useVersionCheck } from './hooks/useVersionCheck'
@@ -15,10 +16,44 @@ import { deriveEvents, mergeAnnouncedEvents, applySettlement } from './utils/joi
 import type { ReqLookup } from './utils/joinEvents'
 import { computeProviderStats } from './utils/providerStats'
 import type { NormalisedBid } from './types/dfs'
+import type { NotificationStatus } from './hooks/useNotifications'
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { staleTime: 5 * 60 * 1000 } },
 })
+
+function NotificationToggle({
+  status,
+  onToggle,
+}: {
+  status: NotificationStatus
+  onToggle: () => void
+}) {
+  if (status === 'unsupported') return null
+
+  if (status === 'blocked') {
+    return (
+      <span className="hidden sm:inline text-xs text-gray-400 whitespace-nowrap" title="Notifications blocked by browser or system settings">
+        Notifications blocked
+      </span>
+    )
+  }
+
+  const label = status === 'on' ? 'Notifications on' : status === 'disabled' ? 'Notifications off' : 'Enable notifications'
+  const style = status === 'on'
+    ? 'bg-green-100 text-green-700 hover:bg-green-200'
+    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+
+  return (
+    <button
+      onClick={onToggle}
+      className={`hidden sm:inline-block rounded px-2 py-0.5 text-xs font-medium transition-colors whitespace-nowrap ${style}`}
+      title={status === 'on' ? 'Click to disable notifications' : 'Click to enable notifications'}
+    >
+      {label}
+    </button>
+  )
+}
 
 function AlertBanner({
   newEventIds,
@@ -67,8 +102,9 @@ function Dashboard() {
 
   usePageTracking()
   const newVersionAvailable = useVersionCheck()
+  const { status: notifStatus, toggle: toggleNotif, notify } = useNotifications()
   const { bids: currentBids, rawReqs, reqLookup: currentReqLookup, settlementRows, isLoading, error } = useEvents()
-  const { newEventIds, newBidsAlert, newSettlementAlert, lastChecked, dismiss } = useEventAlerts()
+  const { newEventIds, newBidsAlert, newSettlementAlert, lastChecked, dismiss } = useEventAlerts(notify)
   useTabAlert(newEventIds.length + (newBidsAlert ? 1 : 0) + (newSettlementAlert ? 1 : 0))
 
   // Each tier is cumulative: season2223 also loads 23/24 and full 25/26 archive
@@ -217,6 +253,7 @@ function Dashboard() {
             {isLoadingHistory && (
               <span className="text-xs text-gray-400 whitespace-nowrap">Loading…</span>
             )}
+            <NotificationToggle status={notifStatus} onToggle={toggleNotif} />
             <span
               title={`Polling every 60s · last checked ${lastChecked ? lastChecked.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : '…'}`}
               className="hidden sm:inline text-xs text-gray-400 whitespace-nowrap"
