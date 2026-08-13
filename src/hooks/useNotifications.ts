@@ -27,9 +27,12 @@ export function useNotifications(): {
 
   useEffect(() => {
     if (!supported || typeof navigator.permissions === 'undefined') return
+    // PermissionState uses 'prompt'; NotificationPermission uses 'default' — normalise.
+    const normalise = (s: PermissionState): NotificationPermission =>
+      s === 'prompt' ? 'default' : (s as NotificationPermission)
     navigator.permissions.query({ name: 'notifications' as PermissionName }).then((ps) => {
-      setPermission(ps.state as NotificationPermission)
-      ps.onchange = () => setPermission(ps.state as NotificationPermission)
+      setPermission(normalise(ps.state))
+      ps.onchange = () => setPermission(normalise(ps.state))
     })
   }, [supported])
 
