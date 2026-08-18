@@ -53,6 +53,18 @@ export function classifyBmu(bmu: BmuRef): BmuCategory {
   return 'other'
 }
 
+// Infer GSP group for T_ units that have no gspGroupId, using TLF as a proxy.
+// Scottish transmission nodes are in surplus and have strongly negative TLF.
+function effectiveGspGroup(bmu: BmuRef): string | null {
+  if (bmu.gspGroupId) return bmu.gspGroupId
+  if (bmu.transmissionLossFactor != null) {
+    const tlf = parseFloat(bmu.transmissionLossFactor)
+    if (tlf < -0.015) return '_P' // North Scotland
+    if (tlf < -0.003) return '_N' // South Scotland
+  }
+  return null
+}
+
 function isScottish(bmu: BmuRef): boolean {
   // Embedded units carry a GSP group — use that where available.
   if (bmu.gspGroupId === '_N' || bmu.gspGroupId === '_P') return true
@@ -101,6 +113,14 @@ export interface GeoMW {
   scotland: number
 }
 
+// Per-GSP-group MW totals for map markers
+export type ActionCategory = 'wind' | 'pumped-storage' | 'battery'
+export interface GspAction {
+  gspGroupId: string
+  category: ActionCategory
+  mw: number
+}
+
 export interface BalancingPeriod {
   settlementPeriod: number
   periodStartUtc: string
@@ -111,6 +131,7 @@ export interface BalancingPeriod {
   battery: GeoMW
   batteryAvgBidPrice: number | null
   interconnectorNetMW: number
+  gspActions: GspAction[]
 }
 
 function periodStartUtc(period: number): string {
@@ -176,6 +197,8 @@ export function aggregateByPeriod(
     let batPriceTotal = 0, batPriceMw = 0
 
     let interconnectorNetMW = 0
+    // Accumulate MW per GSP group per action category for map markers
+    const gspMw = new Map<string, Map<ActionCategory, number>>()
 
     for (const [bmuId, rec] of latestByBmu) {
       const bmu = bmuMap.get(bmuId)
@@ -183,26 +206,44 @@ export function aggregateByPeriod(
       const cat = classifyBmu(bmu)
       const scottish = isScottish(bmu)
       const delta = rec.levelFrom - rec.levelTo
+      const gsp = effectiveGspGroup(bmu)
+
+      const addGsp = (category: ActionCategory, mw: number) => {
+        if (!gsp) return
+        if (!gspMw.has(gsp)) gspMw.set(gsp, new Map())
+        const prev = gspMw.get(gsp)!.get(category) ?? 0
+        gspMw.get(gsp)!.set(category, prev + mw)
+      }
 
       if (cat === 'wind' && delta > 0) {
         const price = matchBidPrice(bmuId, rec.levelTo, bodByBmu)
         wind.total += delta
         if (scottish) wind.scotland += delta
         if (price != null) { windPriceTotal += price * delta; windPriceMw += delta }
+        addGsp('wind', delta)
       } else if (cat === 'pumped-storage' && rec.levelTo < 0) {
         const mw = Math.abs(rec.levelTo)
         const price = matchBidPrice(bmuId, rec.levelTo, bodByBmu)
         ps.total += mw
         if (scottish) ps.scotland += mw
         if (price != null) { psPriceTotal += price * mw; psPriceMw += mw }
+        addGsp('pumped-storage', mw)
       } else if (cat === 'battery' && rec.levelTo < 0) {
         const mw = Math.abs(rec.levelTo)
         const price = matchBidPrice(bmuId, rec.levelTo, bodByBmu)
         bat.total += mw
         if (scottish) bat.scotland += mw
         if (price != null) { batPriceTotal += price * mw; batPriceMw += mw }
+        addGsp('battery', mw)
       } else if (cat === 'interconnector') {
         interconnectorNetMW += rec.levelTo
+      }
+    }
+
+    const gspActions: GspAction[] = []
+    for (const [gspGroupId, catMap] of gspMw) {
+      for (const [category, mw] of catMap) {
+        gspActions.push({ gspGroupId, category, mw: Math.round(mw) })
       }
     }
 
@@ -216,6 +257,7 @@ export function aggregateByPeriod(
       battery: { total: Math.round(bat.total), scotland: Math.round(bat.scotland) },
       batteryAvgBidPrice: batPriceMw > 0 ? batPriceTotal / batPriceMw : null,
       interconnectorNetMW: Math.round(interconnectorNetMW),
+      gspActions,
     })
   }
 

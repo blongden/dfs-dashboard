@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import type { DfsEvent, NormalisedBid, ZoneNumber } from '../../types/dfs'
 import { BidTable } from './BidTable'
@@ -8,6 +8,7 @@ import { ZoneMap } from './ZoneMap'
 import { ConstraintPanel } from './ConstraintPanel'
 import { BalancingPanel } from './BalancingPanel'
 import { useConstraints } from '../../hooks/useConstraints'
+import { useBalancingActions } from '../../hooks/useBalancingActions'
 
 interface Props {
   event: DfsEvent
@@ -46,6 +47,8 @@ export function BidDetail({ event, bids }: Props) {
   const [filter, setFilter] = useState<Filter>('all')
   const navigate = useNavigate()
   const { data: constraintFlows = [], isLoading: constraintsLoading } = useConstraints(event)
+  const { data: balancingData } = useBalancingActions(event)
+  const gspActions = useMemo(() => balancingData[0]?.gspActions ?? [], [balancingData])
 
   const visible = bids.filter((b) => {
     if (filter === 'accepted') return b.status === 'Accepted'
@@ -234,7 +237,7 @@ export function BidDetail({ event, bids }: Props) {
                 Zone heatmap
               </h3>
               <div className="flex-1">
-                <ZoneMap bids={bids} />
+                <ZoneMap bids={bids} gspActions={gspActions} />
               </div>
             </div>
           </div>
