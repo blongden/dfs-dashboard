@@ -20,11 +20,11 @@ export interface BodRecord {
   settlementPeriod: number
   timeFrom: string
   timeTo: string
-  levelFrom: number   // MW lower bound of this bid/offer step
-  levelTo: number     // MW upper bound of this bid/offer step
-  pairId: number      // negative = bid (turn-down), positive = offer (turn-up)
-  bid: number         // bid price £/MWh (what NESO pays to turn down)
-  offer: number       // offer price £/MWh (what NESO pays to turn up)
+  levelFrom: number   // boundary point for this bid/offer step (levelFrom === levelTo)
+  levelTo: number
+  pairId: number      // negative = bid (turn-down price), positive = offer (turn-up price)
+  bid: number         // £/MWh NESO pays to turn down
+  offer: number       // £/MWh NESO pays to turn up
   nationalGridBmUnit: string
   bmUnit: string
 }
@@ -36,6 +36,8 @@ export interface BmuRef {
   generationCapacity: string
   interconnectorId: string | null
   bmUnitName: string
+  gspGroupId: string | null
+  gspGroupName: string | null
 }
 
 // ── Classification ────────────────────────────────────────────────────────────
@@ -46,21 +48,57 @@ export function classifyBmu(bmu: BmuRef): BmuCategory {
   if (bmu.fuelType === 'WIND') return 'wind'
   if (bmu.fuelType === 'PS') return 'pumped-storage'
   if (bmu.fuelType?.startsWith('INT') || bmu.interconnectorId) return 'interconnector'
-  // Batteries register as fuelType='OTHER' with symmetric charge/discharge capacity
   if (bmu.fuelType === 'OTHER' && parseFloat(bmu.demandCapacity || '0') < -5) return 'battery'
   return 'other'
 }
 
+function isScottish(bmu: BmuRef): boolean {
+  return bmu.gspGroupId === '_N' || bmu.gspGroupId === '_P' ||
+    (bmu.gspGroupName?.toLowerCase().includes('scotland') ?? false)
+}
+
+// ── Price matching ────────────────────────────────────────────────────────────
+
+// BOD uses point boundaries (levelFrom === levelTo), not ranges.
+// Each pairId marks the upper MW limit of that bid step.
+// For levelTo >= 0 (curtailment in positive output): find the lowest positive pairId
+// whose boundary >= levelTo — that step contains the instructed level.
+// For levelTo < 0 (charging below zero): find the highest negative pairId
+// whose boundary <= levelTo.
+function matchBidPrice(
+  bmuId: string,
+  levelTo: number,
+  bodByBmu: Map<string, BodRecord[]>
+): number | null {
+  const steps = bodByBmu.get(bmuId) ?? []
+  if (levelTo >= 0) {
+    const match = steps
+      .filter((s) => s.pairId >= 1 && s.levelFrom >= levelTo)
+      .sort((a, b) => a.pairId - b.pairId)[0]
+    return match?.bid ?? null
+  } else {
+    const match = steps
+      .filter((s) => s.pairId < 0 && s.levelFrom <= levelTo)
+      .sort((a, b) => b.pairId - a.pairId)[0]
+    return match?.bid ?? null
+  }
+}
+
 // ── Aggregated output ─────────────────────────────────────────────────────────
+
+export interface GeoMW {
+  total: number
+  scotland: number
+}
 
 export interface BalancingPeriod {
   settlementPeriod: number
-  periodStartUtc: string  // "HH:MM" UTC derived from period number
-  windCurtailedMW: number
+  periodStartUtc: string
+  wind: GeoMW
   windAvgBidPrice: number | null
-  pumpedStorageChargingMW: number
+  pumpedStorage: GeoMW
   psAvgBidPrice: number | null
-  batteryChargingMW: number
+  battery: GeoMW
   batteryAvgBidPrice: number | null
   interconnectorNetMW: number
 }
@@ -68,32 +106,6 @@ export interface BalancingPeriod {
 function periodStartUtc(period: number): string {
   const mins = (period - 1) * 30
   return `${String(Math.floor(mins / 60)).padStart(2, '0')}:${String(mins % 60).padStart(2, '0')}`
-}
-
-// Find the weighted-average bid price for a BOALF acceptance against the BOD ladder.
-// BOALF says: output moved from levelFrom → levelTo (a bid = output was reduced).
-// BOD bid steps (pairId < 0) define the price at each MW output range.
-// We find all BOD steps whose range overlaps [levelTo, levelFrom] and weight by overlap.
-function matchBidPrice(
-  bmuId: string,
-  levelFrom: number,
-  levelTo: number,
-  bodByBmu: Map<string, BodRecord[]>
-): number | null {
-  const lo = Math.min(levelFrom, levelTo)
-  const hi = Math.max(levelFrom, levelTo)
-  const steps = bodByBmu.get(bmuId)?.filter((b) => b.pairId < 0) ?? []
-  let totalMw = 0
-  let weightedPrice = 0
-  for (const step of steps) {
-    const overlapLo = Math.max(lo, step.levelFrom)
-    const overlapHi = Math.min(hi, step.levelTo)
-    if (overlapHi <= overlapLo) continue
-    const mw = overlapHi - overlapLo
-    totalMw += mw
-    weightedPrice += step.bid * mw
-  }
-  return totalMw > 0 ? weightedPrice / totalMw : null
 }
 
 // ── Fetchers ──────────────────────────────────────────────────────────────────
@@ -120,14 +132,12 @@ export function aggregateByPeriod(
   bod: BodRecord[],
   bmuMap: Map<string, BmuRef>
 ): BalancingPeriod[] {
-  // Index BOD by BMU for price lookups
   const bodByBmu = new Map<string, BodRecord[]>()
   for (const b of bod) {
     if (!bodByBmu.has(b.nationalGridBmUnit)) bodByBmu.set(b.nationalGridBmUnit, [])
     bodByBmu.get(b.nationalGridBmUnit)!.push(b)
   }
 
-  // Group BOALF by settlement period
   const byPeriod = new Map<number, BoalfRecord[]>()
   for (const r of boalf) {
     const p = r.settlementPeriodFrom
@@ -138,7 +148,6 @@ export function aggregateByPeriod(
   const result: BalancingPeriod[] = []
 
   for (const [period, recs] of [...byPeriod.entries()].sort(([a], [b]) => a - b)) {
-    // Use the last acceptance per BMU to avoid double-counting amended instructions
     const latestByBmu = new Map<string, BoalfRecord>()
     for (const r of recs) {
       const prev = latestByBmu.get(r.nationalGridBmUnit)
@@ -147,29 +156,41 @@ export function aggregateByPeriod(
       }
     }
 
-    let windMW = 0, windPriceTotal = 0, windPriceMw = 0
-    let psMW = 0, psPriceTotal = 0, psPriceMw = 0
-    let batMW = 0, batPriceTotal = 0, batPriceMw = 0
+    const wind: GeoMW = { total: 0, scotland: 0 }
+    let windPriceTotal = 0, windPriceMw = 0
+
+    const ps: GeoMW = { total: 0, scotland: 0 }
+    let psPriceTotal = 0, psPriceMw = 0
+
+    const bat: GeoMW = { total: 0, scotland: 0 }
+    let batPriceTotal = 0, batPriceMw = 0
+
     let interconnectorNetMW = 0
 
     for (const [bmuId, rec] of latestByBmu) {
       const bmu = bmuMap.get(bmuId)
       if (!bmu) continue
       const cat = classifyBmu(bmu)
-      const delta = rec.levelFrom - rec.levelTo // positive = output was reduced (bid action)
+      const scottish = isScottish(bmu)
+      const delta = rec.levelFrom - rec.levelTo
 
       if (cat === 'wind' && delta > 0) {
-        const price = matchBidPrice(bmuId, rec.levelFrom, rec.levelTo, bodByBmu)
-        windMW += delta
+        const price = matchBidPrice(bmuId, rec.levelTo, bodByBmu)
+        wind.total += delta
+        if (scottish) wind.scotland += delta
         if (price != null) { windPriceTotal += price * delta; windPriceMw += delta }
       } else if (cat === 'pumped-storage' && rec.levelTo < 0) {
-        const price = matchBidPrice(bmuId, rec.levelFrom, rec.levelTo, bodByBmu)
-        psMW += Math.abs(rec.levelTo)
-        if (price != null) { psPriceTotal += price * Math.abs(rec.levelTo); psPriceMw += Math.abs(rec.levelTo) }
+        const mw = Math.abs(rec.levelTo)
+        const price = matchBidPrice(bmuId, rec.levelTo, bodByBmu)
+        ps.total += mw
+        if (scottish) ps.scotland += mw
+        if (price != null) { psPriceTotal += price * mw; psPriceMw += mw }
       } else if (cat === 'battery' && rec.levelTo < 0) {
-        const price = matchBidPrice(bmuId, rec.levelFrom, rec.levelTo, bodByBmu)
-        batMW += Math.abs(rec.levelTo)
-        if (price != null) { batPriceTotal += price * Math.abs(rec.levelTo); batPriceMw += Math.abs(rec.levelTo) }
+        const mw = Math.abs(rec.levelTo)
+        const price = matchBidPrice(bmuId, rec.levelTo, bodByBmu)
+        bat.total += mw
+        if (scottish) bat.scotland += mw
+        if (price != null) { batPriceTotal += price * mw; batPriceMw += mw }
       } else if (cat === 'interconnector') {
         interconnectorNetMW += rec.levelTo
       }
@@ -178,11 +199,11 @@ export function aggregateByPeriod(
     result.push({
       settlementPeriod: period,
       periodStartUtc: periodStartUtc(period),
-      windCurtailedMW: Math.round(windMW),
+      wind: { total: Math.round(wind.total), scotland: Math.round(wind.scotland) },
       windAvgBidPrice: windPriceMw > 0 ? windPriceTotal / windPriceMw : null,
-      pumpedStorageChargingMW: Math.round(psMW),
+      pumpedStorage: { total: Math.round(ps.total), scotland: Math.round(ps.scotland) },
       psAvgBidPrice: psPriceMw > 0 ? psPriceTotal / psPriceMw : null,
-      batteryChargingMW: Math.round(batMW),
+      battery: { total: Math.round(bat.total), scotland: Math.round(bat.scotland) },
       batteryAvgBidPrice: batPriceMw > 0 ? batPriceTotal / batPriceMw : null,
       interconnectorNetMW: Math.round(interconnectorNetMW),
     })
