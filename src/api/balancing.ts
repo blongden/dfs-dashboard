@@ -38,6 +38,7 @@ export interface BmuRef {
   bmUnitName: string
   gspGroupId: string | null
   gspGroupName: string | null
+  transmissionLossFactor: string | null
 }
 
 // ── Classification ────────────────────────────────────────────────────────────
@@ -53,8 +54,17 @@ export function classifyBmu(bmu: BmuRef): BmuCategory {
 }
 
 function isScottish(bmu: BmuRef): boolean {
-  return bmu.gspGroupId === '_N' || bmu.gspGroupId === '_P' ||
-    (bmu.gspGroupName?.toLowerCase().includes('scotland') ?? false)
+  // Embedded units carry a GSP group — use that where available.
+  if (bmu.gspGroupId === '_N' || bmu.gspGroupId === '_P') return true
+  if (bmu.gspGroupName?.toLowerCase().includes('scotland')) return true
+  // Transmission-connected units (T_ prefix) have no GSP group. Fall back to
+  // transmissionLossFactor: Scottish nodes are in generation surplus and have a
+  // negative TLF, typically below -0.003. English/Welsh T_ nodes are positive or
+  // very slightly negative.
+  if (bmu.gspGroupId === null && bmu.transmissionLossFactor != null) {
+    return parseFloat(bmu.transmissionLossFactor) < -0.003
+  }
+  return false
 }
 
 // ── Price matching ────────────────────────────────────────────────────────────
