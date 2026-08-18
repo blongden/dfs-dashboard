@@ -1,76 +1,38 @@
 import { useBalancingActions } from '../../hooks/useBalancingActions'
 import type { DfsEvent } from '../../types/dfs'
-import type { BalancingPeriod } from '../../api/balancing'
 
-function MiniBar({ value, max, className }: { value: number; max: number; className: string }) {
-  const pct = max > 0 ? Math.min((value / max) * 100, 100) : 0
+interface StatProps {
+  label: string
+  mw: number
+  price: number | null
+  barColor: string
+  maxMw: number
+  textColor: string
+}
+
+function Stat({ label, mw, price, barColor, maxMw, textColor }: StatProps) {
+  if (mw === 0) return null
+  const pct = maxMw > 0 ? Math.min((mw / maxMw) * 100, 100) : 0
   return (
-    <div className="mt-0.5 h-1 w-full rounded bg-gray-100">
-      <div className={`h-full rounded ${className}`} style={{ width: `${pct}%` }} />
+    <div>
+      <div className="flex items-baseline justify-between gap-2">
+        <span className={`text-xs font-medium ${textColor}`}>{label}</span>
+        <span className="text-xs text-gray-700 font-medium tabular-nums">
+          {mw.toLocaleString()} MW
+          {price != null && (
+            <span className="ml-1 text-gray-400 font-normal">@ £{price.toFixed(0)}/MWh</span>
+          )}
+        </span>
+      </div>
+      <div className="mt-0.5 h-1.5 w-full rounded bg-gray-100">
+        <div className={`h-full rounded ${barColor}`} style={{ width: `${pct}%` }} />
+      </div>
     </div>
   )
 }
 
-function PeriodRow({
-  p,
-  isEvent,
-  maxWind,
-  maxPs,
-  maxBat,
-}: {
-  p: BalancingPeriod
-  isEvent: boolean
-  maxWind: number
-  maxPs: number
-  maxBat: number
-}) {
-  return (
-    <tr className={`border-b border-gray-50 ${isEvent ? 'bg-blue-50' : ''}`}>
-      <td className={`py-2 pr-3 font-mono text-xs whitespace-nowrap ${isEvent ? 'font-bold text-blue-700' : 'text-gray-500'}`}>
-        {p.periodStartUtc}
-        {isEvent && <span className="ml-1 text-blue-400 text-xs">DFS</span>}
-      </td>
-
-      <td className="py-2 px-2 text-right min-w-[72px]">
-        {p.windCurtailedMW > 0 ? (
-          <>
-            <span className="text-xs text-amber-700 font-medium">{p.windCurtailedMW.toLocaleString()} MW</span>
-            <MiniBar value={p.windCurtailedMW} max={maxWind} className="bg-amber-300" />
-          </>
-        ) : <span className="text-xs text-gray-300">–</span>}
-      </td>
-
-      <td className="py-2 px-2 text-right min-w-[72px]">
-        {p.pumpedStorageChargingMW > 0 ? (
-          <>
-            <span className="text-xs text-blue-700 font-medium">{p.pumpedStorageChargingMW.toLocaleString()} MW</span>
-            <MiniBar value={p.pumpedStorageChargingMW} max={maxPs} className="bg-blue-300" />
-          </>
-        ) : <span className="text-xs text-gray-300">–</span>}
-      </td>
-
-      <td className="py-2 px-2 text-right min-w-[72px]">
-        {p.batteryChargingMW > 0 ? (
-          <>
-            <span className="text-xs text-green-700 font-medium">{p.batteryChargingMW.toLocaleString()} MW</span>
-            <MiniBar value={p.batteryChargingMW} max={maxBat} className="bg-green-300" />
-          </>
-        ) : <span className="text-xs text-gray-300">–</span>}
-      </td>
-
-      <td className="py-2 pl-2 text-right min-w-[72px]">
-        {p.interconnectorNetMW !== 0 ? (
-          <span className={`text-xs font-medium ${p.interconnectorNetMW > 0 ? 'text-purple-700' : 'text-red-600'}`}>
-            {p.interconnectorNetMW > 0 ? '+' : ''}{p.interconnectorNetMW.toLocaleString()} MW
-          </span>
-        ) : <span className="text-xs text-gray-300">–</span>}
-      </td>
-    </tr>
-  )
-}
-
 export function BalancingPanel({ event }: { event: DfsEvent }) {
-  const { data, eventPeriod, isLoading, error } = useBalancingActions(event)
+  const { data, isLoading, error } = useBalancingActions(event)
 
   if (error) return null
 
@@ -83,48 +45,47 @@ export function BalancingPanel({ event }: { event: DfsEvent }) {
     )
   }
 
-  if (data.length === 0) return null
+  // There will be exactly one period (the event window)
+  const p = data[0]
+  if (!p) return null
 
-  const maxWind = Math.max(...data.map((d) => d.windCurtailedMW), 1)
-  const maxPs   = Math.max(...data.map((d) => d.pumpedStorageChargingMW), 1)
-  const maxBat  = Math.max(...data.map((d) => d.batteryChargingMW), 1)
+  const hasAny = p.windCurtailedMW > 0 || p.pumpedStorageChargingMW > 0 ||
+                 p.batteryChargingMW > 0 || p.interconnectorNetMW !== 0
+  if (!hasAny) return null
+
+  const maxMw = Math.max(p.windCurtailedMW, p.pumpedStorageChargingMW, p.batteryChargingMW, 1)
 
   return (
     <div className="mt-4 border-t pt-4">
       <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500">Grid balancing context</h3>
-      <p className="mt-0.5 mb-2 text-xs text-gray-400">
-        BM acceptances ±1 hour around this event (times UTC).
+      <p className="mt-0.5 mb-3 text-xs text-gray-400">
+        Other BM actions during this event window.
+        {event.clearingPricePerMWh != null && (
+          <span className="ml-1">DFS clearing price: <span className="font-medium text-gray-600">£{event.clearingPricePerMWh.toFixed(0)}/MWh</span>.</span>
+        )}
       </p>
 
-      <div className="overflow-x-auto">
-        <table className="w-full">
-          <thead>
-            <tr className="border-b text-left">
-              <th className="pb-1 pr-3 text-xs font-medium text-gray-400">Time</th>
-              <th className="pb-1 px-2 text-right text-xs font-medium text-amber-600">Wind off</th>
-              <th className="pb-1 px-2 text-right text-xs font-medium text-blue-600">Pumped storage</th>
-              <th className="pb-1 px-2 text-right text-xs font-medium text-green-600">Batteries</th>
-              <th className="pb-1 pl-2 text-right text-xs font-medium text-purple-600">Interconnectors</th>
-            </tr>
-          </thead>
-          <tbody>
-            {data.map((p) => (
-              <PeriodRow
-                key={p.settlementPeriod}
-                p={p}
-                isEvent={p.settlementPeriod === eventPeriod}
-                maxWind={maxWind}
-                maxPs={maxPs}
-                maxBat={maxBat}
-              />
-            ))}
-          </tbody>
-        </table>
+      <div className="flex flex-col gap-2.5">
+        <Stat label="Wind curtailed" mw={p.windCurtailedMW} price={p.windAvgBidPrice}
+              barColor="bg-amber-300" textColor="text-amber-700" maxMw={maxMw} />
+        <Stat label="Pumped storage charging" mw={p.pumpedStorageChargingMW} price={p.psAvgBidPrice}
+              barColor="bg-blue-300" textColor="text-blue-700" maxMw={maxMw} />
+        <Stat label="Batteries charging" mw={p.batteryChargingMW} price={p.batteryAvgBidPrice}
+              barColor="bg-green-300" textColor="text-green-700" maxMw={maxMw} />
+        {p.interconnectorNetMW !== 0 && (
+          <div>
+            <div className="flex items-baseline justify-between gap-2">
+              <span className="text-xs font-medium text-purple-700">Interconnectors</span>
+              <span className={`text-xs font-medium tabular-nums ${p.interconnectorNetMW > 0 ? 'text-purple-700' : 'text-red-600'}`}>
+                {p.interconnectorNetMW > 0 ? '+' : ''}{p.interconnectorNetMW.toLocaleString()} MW
+                <span className="ml-1 text-xs text-gray-400 font-normal">
+                  ({p.interconnectorNetMW > 0 ? 'importing' : 'exporting'})
+                </span>
+              </span>
+            </div>
+          </div>
+        )}
       </div>
-
-      <p className="mt-1.5 text-xs text-gray-400">
-        Wind off = curtailment instructions. Interconnectors: + = GB importing, − = exporting.
-      </p>
     </div>
   )
 }

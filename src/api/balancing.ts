@@ -15,6 +15,20 @@ export interface BoalfRecord {
   bmUnit: string
 }
 
+export interface BodRecord {
+  settlementDate: string
+  settlementPeriod: number
+  timeFrom: string
+  timeTo: string
+  levelFrom: number   // MW lower bound of this bid/offer step
+  levelTo: number     // MW upper bound of this bid/offer step
+  pairId: number      // negative = bid (turn-down), positive = offer (turn-up)
+  bid: number         // bid price £/MWh (what NESO pays to turn down)
+  offer: number       // offer price £/MWh (what NESO pays to turn up)
+  nationalGridBmUnit: string
+  bmUnit: string
+}
+
 export interface BmuRef {
   nationalGridBmUnit: string
   fuelType: string | null
@@ -41,18 +55,45 @@ export function classifyBmu(bmu: BmuRef): BmuCategory {
 
 export interface BalancingPeriod {
   settlementPeriod: number
-  // "HH:MM" UTC — derived from period number, not from API timestamps
-  periodStartUtc: string
+  periodStartUtc: string  // "HH:MM" UTC derived from period number
   windCurtailedMW: number
+  windAvgBidPrice: number | null
   pumpedStorageChargingMW: number
+  psAvgBidPrice: number | null
   batteryChargingMW: number
-  // positive = GB importing, negative = GB exporting
+  batteryAvgBidPrice: number | null
   interconnectorNetMW: number
 }
 
 function periodStartUtc(period: number): string {
   const mins = (period - 1) * 30
   return `${String(Math.floor(mins / 60)).padStart(2, '0')}:${String(mins % 60).padStart(2, '0')}`
+}
+
+// Find the weighted-average bid price for a BOALF acceptance against the BOD ladder.
+// BOALF says: output moved from levelFrom → levelTo (a bid = output was reduced).
+// BOD bid steps (pairId < 0) define the price at each MW output range.
+// We find all BOD steps whose range overlaps [levelTo, levelFrom] and weight by overlap.
+function matchBidPrice(
+  bmuId: string,
+  levelFrom: number,
+  levelTo: number,
+  bodByBmu: Map<string, BodRecord[]>
+): number | null {
+  const lo = Math.min(levelFrom, levelTo)
+  const hi = Math.max(levelFrom, levelTo)
+  const steps = bodByBmu.get(bmuId)?.filter((b) => b.pairId < 0) ?? []
+  let totalMw = 0
+  let weightedPrice = 0
+  for (const step of steps) {
+    const overlapLo = Math.max(lo, step.levelFrom)
+    const overlapHi = Math.min(hi, step.levelTo)
+    if (overlapHi <= overlapLo) continue
+    const mw = overlapHi - overlapLo
+    totalMw += mw
+    weightedPrice += step.bid * mw
+  }
+  return totalMw > 0 ? weightedPrice / totalMw : null
 }
 
 // ── Fetchers ──────────────────────────────────────────────────────────────────
@@ -67,12 +108,25 @@ export async function fetchBoalf(from: string, to: string): Promise<BoalfRecord[
   return res.data
 }
 
+export async function fetchBod(from: string, to: string): Promise<BodRecord[]> {
+  const res = await elexonGet<{ data: BodRecord[] }>('/bmrs/api/v1/datasets/BOD', { from, to })
+  return res.data
+}
+
 // ── Aggregation ───────────────────────────────────────────────────────────────
 
 export function aggregateByPeriod(
   boalf: BoalfRecord[],
+  bod: BodRecord[],
   bmuMap: Map<string, BmuRef>
 ): BalancingPeriod[] {
+  // Index BOD by BMU for price lookups
+  const bodByBmu = new Map<string, BodRecord[]>()
+  for (const b of bod) {
+    if (!bodByBmu.has(b.nationalGridBmUnit)) bodByBmu.set(b.nationalGridBmUnit, [])
+    bodByBmu.get(b.nationalGridBmUnit)!.push(b)
+  }
+
   // Group BOALF by settlement period
   const byPeriod = new Map<number, BoalfRecord[]>()
   for (const r of boalf) {
@@ -84,8 +138,7 @@ export function aggregateByPeriod(
   const result: BalancingPeriod[] = []
 
   for (const [period, recs] of [...byPeriod.entries()].sort(([a], [b]) => a - b)) {
-    // Within each period, use the last acceptance per BMU (highest acceptanceNumber)
-    // so that reversed/amended instructions don't double-count.
+    // Use the last acceptance per BMU to avoid double-counting amended instructions
     const latestByBmu = new Map<string, BoalfRecord>()
     for (const r of recs) {
       const prev = latestByBmu.get(r.nationalGridBmUnit)
@@ -94,23 +147,29 @@ export function aggregateByPeriod(
       }
     }
 
-    let windCurtailedMW = 0
-    let pumpedStorageChargingMW = 0
-    let batteryChargingMW = 0
+    let windMW = 0, windPriceTotal = 0, windPriceMw = 0
+    let psMW = 0, psPriceTotal = 0, psPriceMw = 0
+    let batMW = 0, batPriceTotal = 0, batPriceMw = 0
     let interconnectorNetMW = 0
 
     for (const [bmuId, rec] of latestByBmu) {
       const bmu = bmuMap.get(bmuId)
       if (!bmu) continue
       const cat = classifyBmu(bmu)
-      const delta = rec.levelFrom - rec.levelTo // positive = output reduced
+      const delta = rec.levelFrom - rec.levelTo // positive = output was reduced (bid action)
 
       if (cat === 'wind' && delta > 0) {
-        windCurtailedMW += delta
+        const price = matchBidPrice(bmuId, rec.levelFrom, rec.levelTo, bodByBmu)
+        windMW += delta
+        if (price != null) { windPriceTotal += price * delta; windPriceMw += delta }
       } else if (cat === 'pumped-storage' && rec.levelTo < 0) {
-        pumpedStorageChargingMW += Math.abs(rec.levelTo)
+        const price = matchBidPrice(bmuId, rec.levelFrom, rec.levelTo, bodByBmu)
+        psMW += Math.abs(rec.levelTo)
+        if (price != null) { psPriceTotal += price * Math.abs(rec.levelTo); psPriceMw += Math.abs(rec.levelTo) }
       } else if (cat === 'battery' && rec.levelTo < 0) {
-        batteryChargingMW += Math.abs(rec.levelTo)
+        const price = matchBidPrice(bmuId, rec.levelFrom, rec.levelTo, bodByBmu)
+        batMW += Math.abs(rec.levelTo)
+        if (price != null) { batPriceTotal += price * Math.abs(rec.levelTo); batPriceMw += Math.abs(rec.levelTo) }
       } else if (cat === 'interconnector') {
         interconnectorNetMW += rec.levelTo
       }
@@ -119,9 +178,12 @@ export function aggregateByPeriod(
     result.push({
       settlementPeriod: period,
       periodStartUtc: periodStartUtc(period),
-      windCurtailedMW: Math.round(windCurtailedMW),
-      pumpedStorageChargingMW: Math.round(pumpedStorageChargingMW),
-      batteryChargingMW: Math.round(batteryChargingMW),
+      windCurtailedMW: Math.round(windMW),
+      windAvgBidPrice: windPriceMw > 0 ? windPriceTotal / windPriceMw : null,
+      pumpedStorageChargingMW: Math.round(psMW),
+      psAvgBidPrice: psPriceMw > 0 ? psPriceTotal / psPriceMw : null,
+      batteryChargingMW: Math.round(batMW),
+      batteryAvgBidPrice: batPriceMw > 0 ? batPriceTotal / batPriceMw : null,
       interconnectorNetMW: Math.round(interconnectorNetMW),
     })
   }

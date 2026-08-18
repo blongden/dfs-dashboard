@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import type { DfsEvent } from '../types/dfs'
-import { fetchBmuReference, fetchBoalf, aggregateByPeriod } from '../api/balancing'
+import { fetchBmuReference, fetchBoalf, fetchBod, aggregateByPeriod } from '../api/balancing'
 import type { BalancingPeriod } from '../api/balancing'
 
 function isBst(dateStr: string): boolean {
@@ -13,12 +13,12 @@ function isBst(dateStr: string): boolean {
   return d >= marchEnd && d < octEnd
 }
 
-function toUtcIso(date: string, time: string, offsetHours: number): string {
+function toUtcIso(date: string, time: string): string {
   const [h, m] = time.split(':').map(Number)
   const bstOffset = isBst(date) ? 1 : 0
   const dt = new Date(Date.UTC(
     ...date.split('-').map(Number) as [number, number, number],
-    h - bstOffset + offsetHours,
+    h - bstOffset,
     m,
     0,
   ))
@@ -28,8 +28,7 @@ function toUtcIso(date: string, time: string, offsetHours: number): string {
 export function eventSettlementPeriod(date: string, time: string): number {
   const [h, m] = time.split(':').map(Number)
   const bstOffset = isBst(date) ? 1 : 0
-  const utcH = h - bstOffset
-  return Math.floor((utcH * 60 + m) / 30) + 1
+  return Math.floor(((h - bstOffset) * 60 + m) / 30) + 1
 }
 
 export function useBalancingActions(event: DfsEvent | null): {
@@ -47,24 +46,31 @@ export function useBalancingActions(event: DfsEvent | null): {
     enabled,
   })
 
-  // ±1 hour around the event — keeps us well within Elexon's window limits
-  const from = event ? toUtcIso(event.date, event.from, -1) : ''
-  const to   = event ? toUtcIso(event.date, event.to,   +1) : ''
+  // Exact event window — 30 minutes, within both BOALF and BOD limits
+  const from = event ? toUtcIso(event.date, event.from) : ''
+  const to   = event ? toUtcIso(event.date, event.to)   : ''
 
-  const { data: boalf, isLoading: boalfLoading, error } = useQuery({
+  const { data: boalf, isLoading: boalfLoading, error: boalfError } = useQuery({
     queryKey: ['boalf', event?.date, event?.from],
     queryFn: () => fetchBoalf(from, to),
     staleTime: 5 * 60 * 1000,
     enabled,
   })
 
+  const { data: bod, isLoading: bodLoading, error: bodError } = useQuery({
+    queryKey: ['bod', event?.date, event?.from],
+    queryFn: () => fetchBod(from, to),
+    staleTime: 5 * 60 * 1000,
+    enabled,
+  })
+
   const data: BalancingPeriod[] =
-    bmuRef && boalf ? aggregateByPeriod(boalf, bmuRef) : []
+    bmuRef && boalf && bod ? aggregateByPeriod(boalf, bod, bmuRef) : []
 
   return {
     data,
     eventPeriod: event ? eventSettlementPeriod(event.date, event.from) : 0,
-    isLoading: bmuLoading || boalfLoading,
-    error,
+    isLoading: bmuLoading || boalfLoading || bodLoading,
+    error: boalfError ?? bodError,
   }
 }
