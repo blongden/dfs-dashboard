@@ -54,12 +54,22 @@ function Stat({ label, geo, price, barColor, maxMw, textColor }: StatProps) {
   )
 }
 
+// BOALF is final-settlement data, typically published ~6 weeks after the event.
+const SETTLEMENT_LAG_DAYS = 45
+
+function isSettled(eventDate: string): boolean {
+  const ageDays = (Date.now() - new Date(eventDate + 'T00:00:00Z').getTime()) / 86_400_000
+  return ageDays > SETTLEMENT_LAG_DAYS
+}
+
 export function BalancingPanel({ event }: { event: DfsEvent }) {
   const { data, isLoading, error } = useBalancingActions(event)
+  const settled = isSettled(event.date)
 
   if (error) return null
 
   if (isLoading) {
+    if (!settled) return null // skip loading state for events that won't have data anyway
     return (
       <div className="mt-4 border-t pt-4">
         <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500">Grid balancing context</h3>
@@ -69,11 +79,22 @@ export function BalancingPanel({ event }: { event: DfsEvent }) {
   }
 
   const p = data[0]
-  if (!p) return null
+  const hasAny = p && (p.wind.total > 0 || p.pumpedStorage.total > 0 ||
+                 p.battery.total > 0 || p.interconnectorNetMW !== 0)
 
-  const hasAny = p.wind.total > 0 || p.pumpedStorage.total > 0 ||
-                 p.battery.total > 0 || p.interconnectorNetMW !== 0
-  if (!hasAny) return null
+  if (!hasAny) {
+    if (!settled) {
+      return (
+        <div className="mt-4 border-t pt-4">
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500">Grid balancing context</h3>
+          <p className="mt-1 text-xs text-gray-400">
+            BM acceptance data is published by Elexon after final settlement, typically around 6 weeks after the event.
+          </p>
+        </div>
+      )
+    }
+    return null
+  }
 
   const maxMw = Math.max(p.wind.total, p.pumpedStorage.total, p.battery.total, 1)
 
