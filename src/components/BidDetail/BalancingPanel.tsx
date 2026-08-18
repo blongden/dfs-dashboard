@@ -11,15 +11,6 @@ function MiniBar({ value, max, className }: { value: number; max: number; classN
   )
 }
 
-function PriceTag({ price }: { price: number | null }) {
-  if (price == null) return null
-  return (
-    <span className="ml-1 text-gray-400 text-xs">
-      £{price.toFixed(0)}/MWh
-    </span>
-  )
-}
-
 function PeriodRow({
   p,
   isEvent,
@@ -40,61 +31,39 @@ function PeriodRow({
         {isEvent && <span className="ml-1 text-blue-400 text-xs">DFS</span>}
       </td>
 
-      {/* Wind curtailed */}
-      <td className="py-2 px-2 text-right min-w-[80px]">
+      <td className="py-2 px-2 text-right min-w-[72px]">
         {p.windCurtailedMW > 0 ? (
           <>
-            <span className="text-xs text-amber-700 font-medium">
-              {p.windCurtailedMW.toLocaleString()} MW
-            </span>
-            <PriceTag price={p.windAvgBidPricePerMWh} />
+            <span className="text-xs text-amber-700 font-medium">{p.windCurtailedMW.toLocaleString()} MW</span>
             <MiniBar value={p.windCurtailedMW} max={maxWind} className="bg-amber-300" />
           </>
-        ) : (
-          <span className="text-xs text-gray-300">–</span>
-        )}
+        ) : <span className="text-xs text-gray-300">–</span>}
       </td>
 
-      {/* Pumped storage */}
-      <td className="py-2 px-2 text-right min-w-[80px]">
+      <td className="py-2 px-2 text-right min-w-[72px]">
         {p.pumpedStorageChargingMW > 0 ? (
           <>
-            <span className="text-xs text-blue-700 font-medium">
-              {p.pumpedStorageChargingMW.toLocaleString()} MW
-            </span>
-            <PriceTag price={p.psAvgBidPricePerMWh} />
+            <span className="text-xs text-blue-700 font-medium">{p.pumpedStorageChargingMW.toLocaleString()} MW</span>
             <MiniBar value={p.pumpedStorageChargingMW} max={maxPs} className="bg-blue-300" />
           </>
-        ) : (
-          <span className="text-xs text-gray-300">–</span>
-        )}
+        ) : <span className="text-xs text-gray-300">–</span>}
       </td>
 
-      {/* Batteries */}
-      <td className="py-2 px-2 text-right min-w-[80px]">
+      <td className="py-2 px-2 text-right min-w-[72px]">
         {p.batteryChargingMW > 0 ? (
           <>
-            <span className="text-xs text-green-700 font-medium">
-              {p.batteryChargingMW.toLocaleString()} MW
-            </span>
-            <PriceTag price={p.batteryAvgBidPricePerMWh} />
+            <span className="text-xs text-green-700 font-medium">{p.batteryChargingMW.toLocaleString()} MW</span>
             <MiniBar value={p.batteryChargingMW} max={maxBat} className="bg-green-300" />
           </>
-        ) : (
-          <span className="text-xs text-gray-300">–</span>
-        )}
+        ) : <span className="text-xs text-gray-300">–</span>}
       </td>
 
-      {/* Interconnectors */}
-      <td className="py-2 pl-2 text-right min-w-[70px]">
+      <td className="py-2 pl-2 text-right min-w-[72px]">
         {p.interconnectorNetMW !== 0 ? (
           <span className={`text-xs font-medium ${p.interconnectorNetMW > 0 ? 'text-purple-700' : 'text-red-600'}`}>
-            {p.interconnectorNetMW > 0 ? '+' : ''}
-            {p.interconnectorNetMW.toLocaleString()} MW
+            {p.interconnectorNetMW > 0 ? '+' : ''}{p.interconnectorNetMW.toLocaleString()} MW
           </span>
-        ) : (
-          <span className="text-xs text-gray-300">–</span>
-        )}
+        ) : <span className="text-xs text-gray-300">–</span>}
       </td>
     </tr>
   )
@@ -108,9 +77,7 @@ export function BalancingPanel({ event }: { event: DfsEvent }) {
   if (isLoading) {
     return (
       <div className="mt-4 border-t pt-4">
-        <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-          Grid balancing context
-        </h3>
+        <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500">Grid balancing context</h3>
         <p className="mt-1 text-xs text-gray-400">Loading BM data…</p>
       </div>
     )
@@ -124,11 +91,9 @@ export function BalancingPanel({ event }: { event: DfsEvent }) {
 
   return (
     <div className="mt-4 border-t pt-4">
-      <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-        Grid balancing context
-      </h3>
+      <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500">Grid balancing context</h3>
       <p className="mt-0.5 mb-2 text-xs text-gray-400">
-        BM actions in the 2-hour window around this event (times UTC). Prices are avg accepted bid price where available.
+        BM acceptances ±1 hour around this event (times UTC).
       </p>
 
       <div className="overflow-x-auto">
@@ -158,7 +123,7 @@ export function BalancingPanel({ event }: { event: DfsEvent }) {
       </div>
 
       <p className="mt-1.5 text-xs text-gray-400">
-        Wind off = BM curtailment instructions. Interconnectors: + = GB importing, − = exporting.
+        Wind off = curtailment instructions. Interconnectors: + = GB importing, − = exporting.
       </p>
     </div>
   )

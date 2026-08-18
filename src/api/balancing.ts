@@ -15,20 +15,6 @@ export interface BoalfRecord {
   bmUnit: string
 }
 
-export interface BodRecord {
-  settlementDate: string
-  settlementPeriod: number
-  timeFrom: string
-  timeTo: string
-  nationalGridBmUnit: string
-  // bid < 0 (NESO pays to reduce output), offer > 0 (NESO pays to increase output)
-  bidOfferPairNumber: number
-  offerVolumeAccepted: number | null
-  bidVolumeAccepted: number | null
-  offerPrice: number | null
-  bidPrice: number | null
-}
-
 export interface BmuRef {
   nationalGridBmUnit: string
   fuelType: string | null
@@ -58,11 +44,8 @@ export interface BalancingPeriod {
   // "HH:MM" UTC — derived from period number, not from API timestamps
   periodStartUtc: string
   windCurtailedMW: number
-  windAvgBidPricePerMWh: number | null
   pumpedStorageChargingMW: number
-  psAvgBidPricePerMWh: number | null
   batteryChargingMW: number
-  batteryAvgBidPricePerMWh: number | null
   // positive = GB importing, negative = GB exporting
   interconnectorNetMW: number
 }
@@ -84,28 +67,12 @@ export async function fetchBoalf(from: string, to: string): Promise<BoalfRecord[
   return res.data
 }
 
-export async function fetchBod(from: string, to: string): Promise<BodRecord[]> {
-  const res = await elexonGet<{ data: BodRecord[] }>('/bmrs/api/v1/datasets/BOD', { from, to })
-  return res.data
-}
-
 // ── Aggregation ───────────────────────────────────────────────────────────────
 
 export function aggregateByPeriod(
   boalf: BoalfRecord[],
-  bod: BodRecord[],
   bmuMap: Map<string, BmuRef>
 ): BalancingPeriod[] {
-  // Index BOD bid prices by BMU + period for price lookup
-  // Use accepted bid price (bidPrice) where bidVolumeAccepted > 0
-  const bidPrices = new Map<string, number[]>() // key: `${bmuId}:${period}`
-  for (const b of bod) {
-    if (b.bidPrice == null || (b.bidVolumeAccepted ?? 0) <= 0) continue
-    const key = `${b.nationalGridBmUnit}:${b.settlementPeriod}`
-    if (!bidPrices.has(key)) bidPrices.set(key, [])
-    bidPrices.get(key)!.push(b.bidPrice)
-  }
-
   // Group BOALF by settlement period
   const byPeriod = new Map<number, BoalfRecord[]>()
   for (const r of boalf) {
@@ -128,11 +95,8 @@ export function aggregateByPeriod(
     }
 
     let windCurtailedMW = 0
-    const windPrices: number[] = []
     let pumpedStorageChargingMW = 0
-    const psPrices: number[] = []
     let batteryChargingMW = 0
-    const batPrices: number[] = []
     let interconnectorNetMW = 0
 
     for (const [bmuId, rec] of latestByBmu) {
@@ -141,34 +105,23 @@ export function aggregateByPeriod(
       const cat = classifyBmu(bmu)
       const delta = rec.levelFrom - rec.levelTo // positive = output reduced
 
-      const prices = bidPrices.get(`${bmuId}:${period}`) ?? []
-
       if (cat === 'wind' && delta > 0) {
         windCurtailedMW += delta
-        windPrices.push(...prices)
       } else if (cat === 'pumped-storage' && rec.levelTo < 0) {
         pumpedStorageChargingMW += Math.abs(rec.levelTo)
-        psPrices.push(...prices)
       } else if (cat === 'battery' && rec.levelTo < 0) {
         batteryChargingMW += Math.abs(rec.levelTo)
-        batPrices.push(...prices)
       } else if (cat === 'interconnector') {
         interconnectorNetMW += rec.levelTo
       }
     }
 
-    const avg = (prices: number[]) =>
-      prices.length > 0 ? prices.reduce((s, p) => s + p, 0) / prices.length : null
-
     result.push({
       settlementPeriod: period,
       periodStartUtc: periodStartUtc(period),
       windCurtailedMW: Math.round(windCurtailedMW),
-      windAvgBidPricePerMWh: avg(windPrices),
       pumpedStorageChargingMW: Math.round(pumpedStorageChargingMW),
-      psAvgBidPricePerMWh: avg(psPrices),
       batteryChargingMW: Math.round(batteryChargingMW),
-      batteryAvgBidPricePerMWh: avg(batPrices),
       interconnectorNetMW: Math.round(interconnectorNetMW),
     })
   }
