@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import type { DfsEvent } from '../types/dfs'
-import { fetchBmuReference, fetchBoalf, fetchBod, aggregateByPeriod } from '../api/balancing'
+import { fetchBmuReference, fetchBoal, fetchBod, aggregateByPeriod } from '../api/balancing'
 import type { BalancingPeriod } from '../api/balancing'
 
 function isBst(dateStr: string): boolean {
@@ -46,13 +46,13 @@ export function useBalancingActions(event: DfsEvent | null): {
     enabled,
   })
 
-  // Exact event window — 30 minutes, within both BOALF and BOD limits
+  // Exact event window — 30 minutes, within both BOAL and BOD limits
   const from = event ? toUtcIso(event.date, event.from) : ''
   const to   = event ? toUtcIso(event.date, event.to)   : ''
 
-  const { data: boalf, isLoading: boalfLoading, error: boalfError } = useQuery({
-    queryKey: ['boalf', event?.date, event?.from],
-    queryFn: () => fetchBoalf(from, to),
+  const { data: boal, isLoading: boalLoading, error: boalError } = useQuery({
+    queryKey: ['boal', event?.date, event?.from],
+    queryFn: () => fetchBoal(from, to),
     staleTime: 5 * 60 * 1000,
     enabled,
   })
@@ -65,12 +65,12 @@ export function useBalancingActions(event: DfsEvent | null): {
   })
 
   const data: BalancingPeriod[] =
-    bmuRef && boalf && bod ? aggregateByPeriod(boalf, bod, bmuRef) : []
+    bmuRef && boal && bod ? aggregateByPeriod(boal, bod, bmuRef) : []
 
   return {
     data,
     eventPeriod: event ? eventSettlementPeriod(event.date, event.from) : 0,
-    isLoading: bmuLoading || boalfLoading || bodLoading,
-    error: boalfError ?? bodError,
+    isLoading: bmuLoading || boalLoading || bodLoading,
+    error: boalError ?? bodError,
   }
 }
