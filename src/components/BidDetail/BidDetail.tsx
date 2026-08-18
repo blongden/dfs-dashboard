@@ -6,6 +6,7 @@ import { GspZoneGrid } from './GspZoneGrid'
 import { ProviderPieChart } from './ProviderPieChart'
 import { ZoneMap } from './ZoneMap'
 import { ConstraintPanel } from './ConstraintPanel'
+import { BalancingPanel } from './BalancingPanel'
 import { useConstraints } from '../../hooks/useConstraints'
 
 interface Props {
@@ -221,6 +222,7 @@ export function BidDetail({ event, bids }: Props) {
             <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 min-w-0">
               <ProviderPieChart bids={bids} />
               <ConstraintPanel flows={constraintFlows} isLoading={constraintsLoading} />
+              <BalancingPanel event={event} />
               <GspZoneGrid bids={accepted} />
               <div className="mt-4">
                 <BidTable bids={visible} />

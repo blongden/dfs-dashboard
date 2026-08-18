@@ -11,6 +11,11 @@ export default defineConfig({
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/ckan/, ''),
       },
+      '/elexon': {
+        target: 'https://data.elexon.co.uk',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/elexon/, ''),
+      },
     },
   },
 })
