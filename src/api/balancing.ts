@@ -147,7 +147,7 @@ export async function fetchBmuReference(): Promise<Map<string, BmuRef>> {
 }
 
 export async function fetchBoal(from: string, to: string): Promise<BoalfRecord[]> {
-  const res = await elexonGet<{ data: BoalfRecord[] }>('/bmrs/api/v1/datasets/BOAL', { from, to })
+  const res = await elexonGet<{ data: BoalfRecord[] }>('/bmrs/api/v1/datasets/BOALF', { from, to })
   return res.data
 }
 
