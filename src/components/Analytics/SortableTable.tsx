@@ -27,7 +27,7 @@ export function Th({ label, col, active, asc, onSort, align = 'right', className
   return (
     <th
       onClick={() => onSort(col)}
-      className={`cursor-pointer select-none px-3 py-2 text-xs uppercase tracking-wide text-gray-500 hover:text-gray-800 ${align === 'right' ? 'text-right' : 'text-left'} ${className}`}
+      className={`cursor-pointer select-none px-3 py-2 text-xs uppercase tracking-wide text-gray-500 hover:text-gray-800 whitespace-nowrap ${align === 'right' ? 'text-right' : 'text-left'} ${className}`}
     >
       {label}
       {active
