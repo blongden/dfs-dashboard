@@ -1,17 +1,20 @@
 import { useState, useMemo } from 'react'
-import { HashRouter, Routes, Route, Navigate, useNavigate, useParams } from 'react-router-dom'
+import { HashRouter, Routes, Route, Navigate, useNavigate, useParams, useLocation } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { EventList, eventKey } from './components/EventList/EventList'
 import type { HistoryTier } from './components/EventList/EventList'
 import { BidDetail } from './components/BidDetail/BidDetail'
+import { Analytics } from './components/Analytics/Analytics'
 import { useEvents } from './hooks/useEvents'
 import { useArchiveTier } from './hooks/useArchive'
 import { useEventAlerts } from './hooks/useEventAlerts'
 import { useNotifications } from './hooks/useNotifications'
 import { useTabAlert } from './hooks/useTabAlert'
+import { usePageTracking } from './hooks/usePageTracking'
 import { useVersionCheck } from './hooks/useVersionCheck'
 import { deriveEvents, mergeAnnouncedEvents, applySettlement } from './utils/joinEvents'
 import type { ReqLookup } from './utils/joinEvents'
+import { computeProviderStats } from './utils/providerStats'
 import type { NormalisedBid } from './types/dfs'
 import type { NotificationStatus } from './hooks/useNotifications'
 
@@ -88,12 +91,16 @@ function AlertBanner({
 
 function Dashboard() {
   const navigate = useNavigate()
-const { eventKey: eventParam } = useParams<{ eventKey?: string }>()
+  const location = useLocation()
+  const { eventKey: eventParam } = useParams<{ eventKey?: string }>()
+
+  const view = location.pathname.startsWith('/analytics') ? 'analytics' : 'events'
 
   const [historyTier, setHistoryTier] = useState<HistoryTier>('none')
   const [filterProvider, setFilterProvider] = useState('')
   const [filterType, setFilterType] = useState('')
 
+  usePageTracking()
   const newVersionAvailable = useVersionCheck()
   const { status: notifStatus, toggle: toggleNotif, notify } = useNotifications()
   const { bids: currentBids, rawReqs, reqLookup: currentReqLookup, settlementRows, isLoading, error } = useEvents()
@@ -163,6 +170,11 @@ const { eventKey: eventParam } = useParams<{ eventKey?: string }>()
     return allBids.filter((b) => b.date === date && b.from === from && b.to === to)
   }, [selectedKey, allBids])
 
+  const providerStats = useMemo(
+    () => computeProviderStats(allBids),
+    [allBids]
+  )
+
   const acceptedProvidersByWindow = useMemo(() => {
     const map = new Map<string, Set<string>>()
     for (const bid of allBids) {
@@ -213,9 +225,19 @@ const { eventKey: eventParam } = useParams<{ eventKey?: string }>()
             <div className="flex gap-1">
               <button
                 onClick={() => navigate('/events')}
-                className="rounded px-3 py-1 text-xs font-medium capitalize transition-colors bg-blue-600 text-white"
+                className={`rounded px-3 py-1 text-xs font-medium capitalize transition-colors ${
+                  view === 'events' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
               >
                 Events
+              </button>
+              <button
+                onClick={() => navigate('/analytics/providers')}
+                className={`rounded px-3 py-1 text-xs font-medium capitalize transition-colors ${
+                  view === 'analytics' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                Analytics
               </button>
             </div>
             <select
@@ -258,8 +280,9 @@ const { eventKey: eventParam } = useParams<{ eventKey?: string }>()
       <AlertBanner newEventIds={newEventIds} newBidsAlert={newBidsAlert} newSettlementAlert={newSettlementAlert} onDismiss={dismiss} />
 
       <div className="flex min-h-0 flex-1">
-        <>
-          <aside className={`${selectedKey ? 'hidden sm:flex' : 'flex'} w-full sm:w-72 flex-shrink-0 border-r overflow-hidden flex-col`}>
+        {view === 'events' ? (
+          <>
+            <aside className={`${selectedKey ? 'hidden sm:flex' : 'flex'} w-full sm:w-72 flex-shrink-0 border-r overflow-hidden flex-col`}>
               <EventList
                 events={filteredEvents}
                 selectedKey={selectedKey}
@@ -282,7 +305,12 @@ const { eventKey: eventParam } = useParams<{ eventKey?: string }>()
                 </div>
               )}
             </main>
-        </>
+          </>
+        ) : (
+          <main className="flex-1 overflow-hidden">
+            <Analytics stats={providerStats} events={events} bids={allBids} />
+          </main>
+        )}
       </div>
 
       <footer className="flex items-center justify-between border-t px-4 py-2 text-xs text-gray-400">
@@ -323,6 +351,8 @@ export default function App() {
           <Route path="/" element={<Navigate to="/events" replace />} />
           <Route path="/events" element={<Dashboard />} />
           <Route path="/events/:eventKey" element={<Dashboard />} />
+          <Route path="/analytics" element={<Navigate to="/analytics/providers" replace />} />
+          <Route path="/analytics/:tab" element={<Dashboard />} />
         </Routes>
       </QueryClientProvider>
     </HashRouter>
