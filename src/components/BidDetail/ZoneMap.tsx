@@ -8,6 +8,8 @@ import { GSP_CENTROIDS } from '../../data/gspGroups'
 interface Props {
   bids: NormalisedBid[]
   gspActions?: GspAction[]
+  announcedZones?: Partial<Record<ZoneNumber, number>>
+  announcedEventType?: string
   height?: number | string
 }
 
@@ -35,13 +37,28 @@ function interpolateColor(t: number): string {
   return `rgb(${r},${g},${b})`
 }
 
+function interpolateAnnouncedColor(t: number, eventType: string): string {
+  if (eventType === 'Upwards') {
+    // light → mid blue
+    const r = Math.round(219 - t * 150)
+    const g = Math.round(234 - t * 122)
+    const b = Math.round(254 - t * 56)
+    return `rgb(${r},${g},${b})`
+  }
+  // Downwards → amber
+  const r = Math.round(254 - t * 8)
+  const g = Math.round(243 - t * 130)
+  const b = Math.round(199 - t * 166)
+  return `rgb(${r},${g},${b})`
+}
+
 const CATEGORY_STYLE: Record<GspAction['category'], { color: string; label: string; latOffset: number; lngOffset: number }> = {
   'wind':          { color: '#f59e0b', label: 'Wind curtailed',       latOffset:  0.15, lngOffset:  0    },
   'pumped-storage':{ color: '#3b82f6', label: 'Pumped storage chg',   latOffset: -0.15, lngOffset:  0.2  },
   'battery':       { color: '#22c55e', label: 'Batteries charging',   latOffset: -0.15, lngOffset: -0.2  },
 }
 
-export function ZoneMap({ bids, gspActions = [], height = '100%' }: Props) {
+export function ZoneMap({ bids, gspActions = [], announcedZones, announcedEventType, height = '100%' }: Props) {
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<L.Map | null>(null)
 
@@ -97,9 +114,23 @@ export function ZoneMap({ bids, gspActions = [], height = '100%' }: Props) {
       .then(([zonesGeoJSON, boundariesGeoJSON]) => {
         if (abortController.signal.aborted) return
 
+        const announcedMaxMW = announcedZones
+          ? Math.max(0, ...Object.values(announcedZones).filter((v): v is number => v != null))
+          : 0
+
         const geoLayer = L.geoJSON(zonesGeoJSON, {
           style: (feature) => {
             const zone = feature?.properties?.Region as number
+            if (announcedZones && announcedEventType) {
+              const cap = announcedZones[zone as ZoneNumber]
+              const t = cap != null && announcedMaxMW > 0 ? cap / announcedMaxMW : 0
+              return {
+                fillColor: cap != null ? interpolateAnnouncedColor(Math.max(0.25, t), announcedEventType) : '#f1f5f9',
+                fillOpacity: cap != null ? 0.75 : 0.3,
+                color: '#94a3b8',
+                weight: 1,
+              }
+            }
             const mw = zoneMW.get(zone) ?? 0
             const t = maxMW > 0 ? mw / maxMW : 0
             return {
@@ -111,12 +142,20 @@ export function ZoneMap({ bids, gspActions = [], height = '100%' }: Props) {
           },
           onEachFeature: (feature, layer) => {
             const zone = feature.properties?.Region as ZoneNumber
-            const mw = zoneMW.get(zone) ?? 0
             const label = ZONE_LABELS[zone] ?? `Zone ${zone}`
-            layer.bindTooltip(
-              `<strong>Zone ${zone}</strong><br/>${label}${mw > 0 ? `<br/>${mw.toFixed(1)} MW accepted` : '<br/>No accepted bids'}`,
-              { sticky: true, className: 'dfs-zone-tooltip' }
-            )
+            if (announcedZones && announcedEventType) {
+              const cap = announcedZones[zone]
+              layer.bindTooltip(
+                `<strong>Zone ${zone}</strong><br/>${label}${cap != null ? `<br/>Cap: ${cap.toLocaleString()} MW` : '<br/>No cap set'}`,
+                { sticky: true, className: 'dfs-zone-tooltip' }
+              )
+            } else {
+              const mw = zoneMW.get(zone) ?? 0
+              layer.bindTooltip(
+                `<strong>Zone ${zone}</strong><br/>${label}${mw > 0 ? `<br/>${mw.toFixed(1)} MW accepted` : '<br/>No accepted bids'}`,
+                { sticky: true, className: 'dfs-zone-tooltip' }
+              )
+            }
           },
         }).addTo(map)
 
@@ -166,7 +205,7 @@ export function ZoneMap({ bids, gspActions = [], height = '100%' }: Props) {
       .catch(() => {}) // aborted fetches throw — swallow silently
 
     return () => abortController.abort()
-  }, [bids, gspActions])
+  }, [bids, gspActions, announcedZones, announcedEventType])
 
   useEffect(() => {
     return () => {
@@ -175,7 +214,8 @@ export function ZoneMap({ bids, gspActions = [], height = '100%' }: Props) {
     }
   }, [])
 
-  if (accepted.length === 0 || maxMW === 0) return null
+  const hasAnnouncedData = announcedZones && Object.keys(announcedZones).length > 0
+  if (!hasAnnouncedData && (accepted.length === 0 || maxMW === 0)) return null
 
   const activeCategories = [...new Set(gspActions.map((a) => a.category))]
 

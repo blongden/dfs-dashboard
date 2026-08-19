@@ -179,17 +179,19 @@ export function BidDetail({ event, bids }: Props) {
       </div>
 
       {bids.length === 0 ? (
-        <div className="flex flex-1 items-center justify-center">
-          <div className="text-center">
-            {event.procuredMW === 0 ? (
-              <>
-                <p className="text-sm font-medium text-gray-600">No bids accepted</p>
-                <p className="mt-1 text-xs text-gray-400">
-                  NESO ran this event but accepted zero bids — 0 MW was procured.
-                </p>
-              </>
-            ) : (
-              <>
+        event.procuredMW === 0 ? (
+          <div className="flex flex-1 items-center justify-center">
+            <div className="text-center">
+              <p className="text-sm font-medium text-gray-600">No bids accepted</p>
+              <p className="mt-1 text-xs text-gray-400">
+                NESO ran this event but accepted zero bids — 0 MW was procured.
+              </p>
+            </div>
+          </div>
+        ) : (
+          <div className="flex min-h-0 flex-1 overflow-hidden">
+            <div className="flex flex-1 items-center justify-center p-6">
+              <div className="text-center">
                 <p className="text-sm font-medium text-gray-600">Bids not yet published</p>
                 <p className="mt-1 text-xs text-gray-400">
                   This event has been announced but participation data has not been released by NESO.
@@ -199,10 +201,24 @@ export function BidDetail({ event, bids }: Props) {
                     Bid deadline: <span className="font-medium text-gray-600">{event.submissionDeadline}</span>
                   </p>
                 )}
-              </>
+              </div>
+            </div>
+            {event.zonalCaps && Object.keys(event.zonalCaps).length > 0 && (
+              <div className="hidden sm:flex w-72 flex-shrink-0 border-l p-3 flex-col">
+                <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
+                  Zone caps
+                </h3>
+                <div className="flex-1">
+                  <ZoneMap
+                    bids={[]}
+                    announcedZones={event.zonalCaps}
+                    announcedEventType={event.eventType}
+                  />
+                </div>
+              </div>
             )}
           </div>
-        </div>
+        )
       ) : (
         <>
           <div className="border-b px-4 py-2 flex gap-2">
