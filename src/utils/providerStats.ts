@@ -11,6 +11,7 @@ export const SEASON_LABELS: Record<Season, string> = {
 
 export interface ProviderStat {
   provider: string
+  totalEvents: number   // distinct event windows bid into
   totalBids: number
   acceptedBids: number
   acceptanceRate: number
@@ -54,6 +55,7 @@ export function computeProviderStats(bids: NormalisedBid[]): ProviderStat[] {
 
   for (const [provider, { bids: provBids, priceDeltaSum, priceDeltaCount }] of map) {
     const accepted = provBids.filter((b) => b.status === 'Accepted')
+    const totalEvents = new Set(provBids.map((b) => `${b.date}|${b.from}|${b.to}`)).size
 
     const bySeason: ProviderStat['bySeason'] = {}
     for (const bid of provBids) {
@@ -84,6 +86,7 @@ export function computeProviderStats(bids: NormalisedBid[]): ProviderStat[] {
 
     stats.push({
       provider,
+      totalEvents,
       totalBids: provBids.length,
       acceptedBids: accepted.length,
       acceptanceRate: provBids.length > 0 ? accepted.length / provBids.length : 0,

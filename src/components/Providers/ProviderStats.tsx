@@ -5,7 +5,7 @@ import { useSortState, Th } from '../Analytics/SortableTable'
 
 const SEASONS: Season[] = ['season2223', 'season2324', 'archive2526']
 
-type SortKey = 'name' | 'acceptedMW' | 'acceptanceRate' | 'avgBidPrice' | 'priceDelta'
+type SortKey = 'name' | 'totalEvents' | 'acceptedMW' | 'acceptanceRate' | 'avgBidPrice' | 'priceDelta'
 
 interface Props {
   stats: ProviderStat[]
@@ -71,6 +71,7 @@ export function ProviderStats({ stats }: Props) {
     return [...filtered].sort((a, b) => {
       let diff = 0
       if (sort === 'name') diff = a.provider.localeCompare(b.provider)
+      else if (sort === 'totalEvents') diff = a.totalEvents - b.totalEvents
       else if (sort === 'acceptedMW') diff = a.totalAcceptedMW - b.totalAcceptedMW
       else if (sort === 'acceptanceRate') diff = a.acceptanceRate - b.acceptanceRate
       else if (sort === 'avgBidPrice') diff = a.avgBidPrice - b.avgBidPrice
@@ -99,6 +100,7 @@ export function ProviderStats({ stats }: Props) {
           <thead className="sticky top-0 bg-gray-50 z-10">
             <tr className="border-b">
               <Th label="Provider" col="name" align="left" active={sort === 'name'} asc={asc} onSort={handleSort} />
+              <Th label="Events" col="totalEvents" active={sort === 'totalEvents'} asc={asc} onSort={handleSort} />
               <Th label="Accepted MW" col="acceptedMW" active={sort === 'acceptedMW'} asc={asc} onSort={handleSort} />
               <Th label="Acceptance rate" col="acceptanceRate" active={sort === 'acceptanceRate'} asc={asc} onSort={handleSort} />
               <Th label="Avg bid £/MWh" col="avgBidPrice" active={sort === 'avgBidPrice'} asc={asc} onSort={handleSort} />
@@ -112,6 +114,9 @@ export function ProviderStats({ stats }: Props) {
               <tr key={stat.provider} className="border-b hover:bg-gray-50">
                 <td className="px-3 py-2 font-medium text-gray-800 max-w-[200px] truncate" title={stat.provider}>
                   {stat.provider}
+                </td>
+                <td className="px-3 py-2 text-right tabular-nums text-gray-600">
+                  {stat.totalEvents}
                 </td>
                 <td className="px-3 py-2 text-right font-semibold text-green-700">
                   {stat.totalAcceptedMW > 0 ? stat.totalAcceptedMW.toFixed(0) : '—'}
