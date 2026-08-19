@@ -1,10 +1,13 @@
 import { useMemo } from 'react'
 import type { DfsEvent, NormalisedBid } from '../../types/dfs'
+import { useSortState, Th } from './SortableTable'
 
 interface Props {
   events: DfsEvent[]
   bids: NormalisedBid[]
 }
+
+type SortKey = 'provider' | 'windows' | 'avg' | 'min' | 'max' | 'negative'
 
 interface ProviderStat {
   provider: string
@@ -29,6 +32,8 @@ function deliveryBarColor(pct: number): string {
 }
 
 export function DeliveryStats({ events, bids }: Props) {
+  const { sortKey, asc, handleSort } = useSortState<SortKey>('windows')
+
   const stats = useMemo((): ProviderStat[] => {
     // Build settlement lookup by window key
     const settlementByWindow = new Map<string, { procuredMW: number; settledMW: number }>()
@@ -69,8 +74,22 @@ export function DeliveryStats({ events, bids }: Props) {
         maxPct: Math.max(...pcts),
         negativeCount: pcts.filter((p) => p < 0).length,
       }))
-      .sort((a, b) => b.windows - a.windows)
+      .sort((a, b) => b.windows - a.windows) // initial order; overridden by sortKey below
   }, [events, bids])
+
+  const sorted = useMemo(() => {
+    const dir = asc ? 1 : -1
+    return [...stats].sort((a, b) => {
+      const diff =
+        sortKey === 'provider' ? a.provider.localeCompare(b.provider)
+        : sortKey === 'windows' ? a.windows - b.windows
+        : sortKey === 'avg' ? a.avgPct - b.avgPct
+        : sortKey === 'min' ? a.minPct - b.minPct
+        : sortKey === 'max' ? a.maxPct - b.maxPct
+        : a.negativeCount - b.negativeCount
+      return diff * dir
+    })
+  }, [stats, sortKey, asc])
 
   if (stats.length === 0) {
     return (
@@ -94,17 +113,18 @@ export function DeliveryStats({ events, bids }: Props) {
       <div className="flex-1 overflow-auto">
         <table className="w-full min-w-[560px] text-sm">
           <thead className="sticky top-0 bg-gray-50 z-10">
-            <tr className="border-b text-xs uppercase tracking-wide text-gray-500">
-              <th className="px-4 py-2 text-left">Provider</th>
-              <th className="px-3 py-2 text-right w-24">Solo windows</th>
-              <th className="px-3 py-2 text-right w-20">Avg</th>
-              <th className="px-3 py-2 text-left">Delivery rate</th>
-              <th className="px-3 py-2 text-right w-28">Range</th>
-              <th className="px-3 py-2 text-right w-20">Negative</th>
+            <tr className="border-b">
+              <Th label="Provider" col="provider" align="left" active={sortKey === 'provider'} asc={asc} onSort={handleSort} />
+              <Th label="Solo windows" col="windows" active={sortKey === 'windows'} asc={asc} onSort={handleSort} className="w-24" />
+              <Th label="Avg" col="avg" active={sortKey === 'avg'} asc={asc} onSort={handleSort} className="w-20" />
+              <th className="px-3 py-2 text-left text-xs uppercase tracking-wide text-gray-500">Delivery rate</th>
+              <Th label="Min" col="min" active={sortKey === 'min'} asc={asc} onSort={handleSort} className="w-20" />
+              <Th label="Max" col="max" active={sortKey === 'max'} asc={asc} onSort={handleSort} className="w-20" />
+              <Th label="Negative" col="negative" active={sortKey === 'negative'} asc={asc} onSort={handleSort} className="w-20" />
             </tr>
           </thead>
           <tbody>
-            {stats.map((s) => {
+            {sorted.map((s) => {
               const avgClamped = Math.max(s.avgPct, 0)
               return (
                 <tr key={s.provider} className="border-b">
@@ -131,8 +151,11 @@ export function DeliveryStats({ events, bids }: Props) {
                       />
                     </div>
                   </td>
-                  <td className="px-3 py-3 text-right text-xs text-gray-400 tabular-nums whitespace-nowrap">
-                    {s.minPct.toFixed(0)}% – {s.maxPct.toFixed(0)}%
+                  <td className="px-3 py-3 text-right text-xs text-gray-400 tabular-nums">
+                    {s.minPct.toFixed(0)}%
+                  </td>
+                  <td className="px-3 py-3 text-right text-xs text-gray-400 tabular-nums">
+                    {s.maxPct.toFixed(0)}%
                   </td>
                   <td className="px-3 py-3 text-right tabular-nums">
                     {s.negativeCount > 0 ? (

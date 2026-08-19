@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react'
 import type { ProviderStat, Season } from '../../utils/providerStats'
 import { SEASON_LABELS } from '../../utils/providerStats'
+import { useSortState, Th } from '../Analytics/SortableTable'
 
 const SEASONS: Season[] = ['season2223', 'season2324', 'archive2526']
 
@@ -57,8 +58,7 @@ function TrendArrow({ stat, seasons }: { stat: ProviderStat; seasons: Season[] }
 }
 
 export function ProviderStats({ stats }: Props) {
-  const [sort, setSort] = useState<SortKey>('acceptedMW')
-  const [asc, setAsc] = useState(false)
+  const { sortKey: sort, asc, handleSort } = useSortState<SortKey>('acceptedMW')
   const [search, setSearch] = useState('')
 
   const visibleSeasons = SEASONS
@@ -79,24 +79,6 @@ export function ProviderStats({ stats }: Props) {
     })
   }, [stats, sort, asc, search])
 
-  function handleSort(key: SortKey) {
-    if (sort === key) setAsc((v) => !v)
-    else { setSort(key); setAsc(false) }
-  }
-
-  function Th({ label, col, align = 'right' }: { label: string; col: SortKey; align?: 'left' | 'right' }) {
-    const active = sort === col
-    return (
-      <th
-        className={`cursor-pointer select-none px-3 py-2 text-xs uppercase tracking-wide text-gray-500 hover:text-gray-800 ${align === 'right' ? 'text-right' : 'text-left'}`}
-        onClick={() => handleSort(col)}
-      >
-        {label}
-        {active && <span className="ml-1 text-gray-400">{asc ? '↑' : '↓'}</span>}
-      </th>
-    )
-  }
-
   return (
     <div className="flex flex-col h-full overflow-hidden">
       <div className="border-b px-4 py-3 flex flex-wrap items-center gap-2">
@@ -116,11 +98,11 @@ export function ProviderStats({ stats }: Props) {
         <table className="w-full min-w-[640px] text-sm">
           <thead className="sticky top-0 bg-gray-50 z-10">
             <tr className="border-b">
-              <Th label="Provider" col="name" align="left" />
-              <Th label="Accepted MW" col="acceptedMW" />
-              <Th label="Acceptance rate" col="acceptanceRate" />
-              <Th label="Avg bid £/MWh" col="avgBidPrice" />
-              <Th label="vs clearing price" col="priceDelta" />
+              <Th label="Provider" col="name" align="left" active={sort === 'name'} asc={asc} onSort={handleSort} />
+              <Th label="Accepted MW" col="acceptedMW" active={sort === 'acceptedMW'} asc={asc} onSort={handleSort} />
+              <Th label="Acceptance rate" col="acceptanceRate" active={sort === 'acceptanceRate'} asc={asc} onSort={handleSort} />
+              <Th label="Avg bid £/MWh" col="avgBidPrice" active={sort === 'avgBidPrice'} asc={asc} onSort={handleSort} />
+              <Th label="vs clearing price" col="priceDelta" active={sort === 'priceDelta'} asc={asc} onSort={handleSort} />
               <th className="px-3 py-2 text-right text-xs uppercase tracking-wide text-gray-500">Trend</th>
               <th className="px-3 py-2 text-right text-xs uppercase tracking-wide text-gray-500">By season</th>
             </tr>
