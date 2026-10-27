@@ -59,6 +59,7 @@ function interpolateAnnouncedColor(t: number, eventType: string): string {
 const BOUNDARY_GROUP: Record<string, string> = {
   B6: 'SCOTEX',
   B7: 'SSHARN3',
+  B9: 'FLOWSTH',
 }
 
 const NO_FLOWS: ConstraintFlow[] = []
