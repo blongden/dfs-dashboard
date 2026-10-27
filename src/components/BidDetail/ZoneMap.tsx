@@ -3,11 +3,13 @@ import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import type { NormalisedBid, ZoneNumber } from '../../types/dfs'
 import type { GspAction } from '../../api/balancing'
+import type { ConstraintFlow } from '../../api/constraints'
 import { GSP_CENTROIDS } from '../../data/gspGroups'
 
 interface Props {
   bids: NormalisedBid[]
   gspActions?: GspAction[]
+  constraintFlows?: ConstraintFlow[]
   announcedZones?: Partial<Record<ZoneNumber, number>>
   announcedEventType?: string
   height?: number | string
@@ -52,13 +54,29 @@ function interpolateAnnouncedColor(t: number, eventType: string): string {
   return `rgb(${r},${g},${b})`
 }
 
+// Map boundary line (GeoJSON label) → NESO day-ahead constraint group.
+// Only boundaries whose group is confirmed are listed; others keep their static style.
+const BOUNDARY_GROUP: Record<string, string> = {
+  B6: 'SCOTEX',
+  B7: 'SSHARN3',
+}
+
+const NO_FLOWS: ConstraintFlow[] = []
+const NO_ACTIONS: GspAction[] = []
+
+function heatColor(ratio: number): string {
+  if (ratio >= 1.0) return '#dc2626'  // red — over limit
+  if (ratio >= 0.85) return '#d97706' // amber — near limit
+  return '#16a34a'                    // green — clear
+}
+
 const CATEGORY_STYLE: Record<GspAction['category'], { color: string; label: string; latOffset: number; lngOffset: number }> = {
   'wind':          { color: '#f59e0b', label: 'Wind curtailed',       latOffset:  0.15, lngOffset:  0    },
   'pumped-storage':{ color: '#3b82f6', label: 'Pumped storage chg',   latOffset: -0.15, lngOffset:  0.2  },
   'battery':       { color: '#22c55e', label: 'Batteries charging',   latOffset: -0.15, lngOffset: -0.2  },
 }
 
-export function ZoneMap({ bids, gspActions = [], announcedZones, announcedEventType, height = '100%' }: Props) {
+export function ZoneMap({ bids, gspActions = NO_ACTIONS, constraintFlows = NO_FLOWS, announcedZones, announcedEventType, height = '100%' }: Props) {
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<L.Map | null>(null)
 
@@ -159,18 +177,47 @@ export function ZoneMap({ bids, gspActions = [], announcedZones, announcedEventT
           },
         }).addTo(map)
 
+        const flowByGroup = new Map(constraintFlows.map((f) => [f.group, f]))
+        const flowFor = (label?: string) => {
+          const group = label && BOUNDARY_GROUP[label.split(' ')[0]]
+          return group ? flowByGroup.get(group) : undefined
+        }
+
         L.geoJSON(boundariesGeoJSON, {
-          style: (feature) => ({
-            color: feature?.properties?.color ?? '#6b7280',
-            weight: 2,
-            dashArray: '6 4',
-            fillOpacity: 0,
-            opacity: 0.85,
-          }),
+          style: (feature) => {
+            const flow = flowFor(feature?.properties?.label)
+            if (!flow) {
+              return {
+                color: feature?.properties?.color ?? '#6b7280',
+                weight: 2,
+                dashArray: '6 4',
+                fillOpacity: 0,
+                opacity: 0.85,
+              }
+            }
+            const ratio = flow.flowMW / flow.limitMW
+            return {
+              color: heatColor(ratio),
+              weight: ratio >= 0.85 ? 5 : 3.5,
+              dashArray: ratio >= 1 ? undefined : '6 4',
+              fillOpacity: 0,
+              opacity: 1,
+            }
+          },
           onEachFeature: (feature, layer) => {
             const { label, desc } = feature?.properties ?? {}
-            if (label) layer.bindTooltip(
-              `<div style="max-width:160px;white-space:normal"><strong>${label}</strong><br/>${desc}</div>`,
+            if (!label) return
+            const flow = flowFor(label)
+            let live = ''
+            if (flow) {
+              const ratio = flow.flowMW / flow.limitMW
+              const headroom = flow.limitMW - flow.flowMW
+              live = `<br/><span style="color:${heatColor(ratio)};font-weight:600">${Math.round(ratio * 100)}% of limit</span>` +
+                `<br/>${Math.round(flow.flowMW).toLocaleString()} / ${Math.round(flow.limitMW).toLocaleString()} MW` +
+                `<br/>${headroom >= 0 ? `${Math.round(headroom).toLocaleString()} MW headroom` : `${Math.round(-headroom).toLocaleString()} MW over limit`}`
+            }
+            layer.bindTooltip(
+              `<div style="max-width:160px;white-space:normal"><strong>${label}</strong>${live}<br/>${desc}</div>`,
               { sticky: true, className: 'dfs-boundary-tooltip' }
             )
           },
@@ -205,7 +252,7 @@ export function ZoneMap({ bids, gspActions = [], announcedZones, announcedEventT
       .catch(() => {}) // aborted fetches throw — swallow silently
 
     return () => abortController.abort()
-  }, [bids, gspActions, announcedZones, announcedEventType])
+  }, [bids, gspActions, constraintFlows, announcedZones, announcedEventType])
 
   useEffect(() => {
     return () => {
@@ -222,6 +269,17 @@ export function ZoneMap({ bids, gspActions = [], announcedZones, announcedEventT
   return (
     <div className="h-full overflow-hidden rounded border border-gray-200 flex flex-col" style={{ background: '#fff' }}>
       <div ref={containerRef} style={{ height, background: '#fff', flex: 1 }} />
+      {constraintFlows.length > 0 && (
+        <div className="flex flex-wrap gap-x-3 gap-y-0.5 px-2 py-1 border-t border-gray-100">
+          <span className="text-xs text-gray-500">Boundary load:</span>
+          {([['#16a34a', '<85%'], ['#d97706', '85–100%'], ['#dc2626', 'over limit']] as const).map(([c, l]) => (
+            <span key={l} className="flex items-center gap-1 text-xs text-gray-500">
+              <span className="inline-block h-0.5 w-3" style={{ background: c, height: 3 }} />
+              {l}
+            </span>
+          ))}
+        </div>
+      )}
       {activeCategories.length > 0 && (
         <div className="flex flex-wrap gap-x-3 gap-y-0.5 px-2 py-1 border-t border-gray-100">
           {activeCategories.map((cat) => (

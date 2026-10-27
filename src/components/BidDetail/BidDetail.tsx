@@ -46,7 +46,7 @@ function ZonalCaps({ caps }: { caps: Partial<Record<ZoneNumber, number>> }) {
 export function BidDetail({ event, bids }: Props) {
   const [filter, setFilter] = useState<Filter>('all')
   const navigate = useNavigate()
-  const { data: constraintFlows = [], isLoading: constraintsLoading } = useConstraints(event)
+  const { data: constraintFlows, isLoading: constraintsLoading } = useConstraints(event)
   const { data: balancingData } = useBalancingActions(event)
   const gspActions = useMemo(() => balancingData[0]?.gspActions ?? [], [balancingData])
 
@@ -211,6 +211,7 @@ export function BidDetail({ event, bids }: Props) {
                 <div className="flex-1">
                   <ZoneMap
                     bids={[]}
+                    constraintFlows={constraintFlows}
                     announcedZones={event.zonalCaps}
                     announcedEventType={event.eventType}
                   />
@@ -240,7 +241,7 @@ export function BidDetail({ event, bids }: Props) {
           <div className="flex min-h-0 flex-1 overflow-hidden">
             <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 min-w-0">
               <ProviderPieChart bids={bids} />
-              <ConstraintPanel flows={constraintFlows} isLoading={constraintsLoading} />
+              <ConstraintPanel flows={constraintFlows ?? []} isLoading={constraintsLoading} />
               <BalancingPanel event={event} />
               <GspZoneGrid bids={accepted} />
               <div className="mt-4">
@@ -253,7 +254,7 @@ export function BidDetail({ event, bids }: Props) {
                 Zone heatmap
               </h3>
               <div className="flex-1">
-                <ZoneMap bids={bids} gspActions={gspActions} />
+                <ZoneMap bids={bids} gspActions={gspActions} constraintFlows={constraintFlows} />
               </div>
             </div>
           </div>

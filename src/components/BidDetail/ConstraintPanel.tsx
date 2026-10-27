@@ -8,7 +8,7 @@ interface Props {
 const LABELS: Record<string, string> = {
   SCOTEX:   'Scotland export (SCOTEX)',
   SSHARN3:  'S Scotland boundary (SSHARN3)',
-  'SSE-SP2': 'SSE / SP boundary',
+  SSE_SP2: 'SSE / SP boundary',
   FLOWSTH:  'Southern England flows',
 }
 
