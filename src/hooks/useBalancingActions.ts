@@ -13,11 +13,14 @@ function isBst(dateStr: string): boolean {
   return d >= marchEnd && d < octEnd
 }
 
-function toUtcIso(date: string, time: string): string {
+export function toUtcIso(date: string, time: string): string {
   const [h, m] = time.split(':').map(Number)
   const bstOffset = isBst(date) ? 1 : 0
+  const [y, mo, d] = date.split('-').map(Number)
   const dt = new Date(Date.UTC(
-    ...date.split('-').map(Number) as [number, number, number],
+    y,
+    mo - 1, // Date.UTC months are 0-based
+    d,
     h - bstOffset,
     m,
     0,

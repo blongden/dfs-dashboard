@@ -8,6 +8,7 @@ import { ZoneMap } from './ZoneMap'
 import { ConstraintPanel } from './ConstraintPanel'
 import { BalancingPanel } from './BalancingPanel'
 import { useConstraints } from '../../hooks/useConstraints'
+import { useInterconnectors } from '../../hooks/useInterconnectors'
 import { useBalancingActions } from '../../hooks/useBalancingActions'
 
 interface Props {
@@ -47,6 +48,7 @@ export function BidDetail({ event, bids }: Props) {
   const [filter, setFilter] = useState<Filter>('all')
   const navigate = useNavigate()
   const { data: constraintFlows, isLoading: constraintsLoading } = useConstraints(event)
+  const { data: interconnectorFlows } = useInterconnectors(event)
   const { data: balancingData } = useBalancingActions(event)
   const gspActions = useMemo(() => balancingData[0]?.gspActions ?? [], [balancingData])
 
@@ -212,6 +214,7 @@ export function BidDetail({ event, bids }: Props) {
                   <ZoneMap
                     bids={[]}
                     constraintFlows={constraintFlows}
+                    interconnectorFlows={interconnectorFlows}
                     announcedZones={event.zonalCaps}
                     announcedEventType={event.eventType}
                   />
@@ -254,7 +257,7 @@ export function BidDetail({ event, bids }: Props) {
                 Zone heatmap
               </h3>
               <div className="flex-1">
-                <ZoneMap bids={bids} gspActions={gspActions} constraintFlows={constraintFlows} />
+                <ZoneMap bids={bids} gspActions={gspActions} constraintFlows={constraintFlows} interconnectorFlows={interconnectorFlows} />
               </div>
             </div>
           </div>
