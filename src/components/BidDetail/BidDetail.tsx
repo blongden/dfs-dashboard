@@ -44,6 +44,8 @@ function ZonalCaps({ caps }: { caps: Partial<Record<ZoneNumber, number>> }) {
   )
 }
 
+const NO_BIDS: NormalisedBid[] = []
+
 export function BidDetail({ event, bids }: Props) {
   const [filter, setFilter] = useState<Filter>('all')
   const navigate = useNavigate()
@@ -212,7 +214,7 @@ export function BidDetail({ event, bids }: Props) {
                 </h3>
                 <div className="flex-1">
                   <ZoneMap
-                    bids={[]}
+                    bids={NO_BIDS}
                     constraintFlows={constraintFlows}
                     interconnectorFlows={interconnectorFlows}
                     announcedZones={event.zonalCaps}
